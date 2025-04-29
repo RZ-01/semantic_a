@@ -1,0 +1,36 @@
+int max(int x,int y)
+{
+    if(x>y)
+    {
+        return x;
+    }
+    elif(x==y)
+    {
+        return x;
+    }
+    else
+    {
+        return y;
+    }
+}
+
+int main()
+{
+    int a=1,b,c=3;
+    b=a*c+3+a;
+    int d=call max(a,b);
+    int i=10;
+    int g;
+    g=3;
+    while(i>0)
+    {
+        i=i-1;
+        d=d+c;
+    }
+    if(i==0)
+    {
+        output d;
+    }
+    output a;
+    return 0;
+}
