@@ -18,13 +18,13 @@ void yyerror(char* msg);
   EXP	*exp;
 }
 
-%token<string>IDENTIFIER INTEGER TYPE_INTEGER TEXT TYPE_DOUBLE
+%token<string>IDENTIFIER INTEGER TYPE_INTEGER TEXT TYPE_DOUBLE TYPE_CHAR TYPE_VOID
 %type<type>declaration_specifiers
-%type<tac>function_declarator parameter_list parameter function_definition block function_declaration declaration statement sentences if_statement elif return_statement while_statement output_statement input_statement
+%type<tac>function_declarator parameter_list parameter function_definition block function_declaration declaration statement sentences if_statement elif return_statement while_statement output_statement input_statement for_statement
 %type<exp>expression argument_list argument call_expression identifier identifier_list assignment_statement
 %type<sym> assignable
 
-%token IF ELSEIF ELSE RETURN INPUT OUTPUT WHILE EQ NEQ GE LE CALL
+%token IF ELSEIF ELSE RETURN INPUT OUTPUT WHILE EQ NEQ GE LE CALL FOR
 
 %left '.'
 %right '='
@@ -93,6 +93,12 @@ declaration_specifiers:TYPE_INTEGER{
 |TYPE_DOUBLE{
   $$=DOUBLE_TYPE;
 }
+|TYPE_CHAR{
+  $$=CHAR_TYPE;
+}
+|TYPE_VOID{
+  $$=VOID_TYPE;
+}
 ;
 
 declaration:declaration_specifiers identifier_list ';'{
@@ -156,6 +162,9 @@ statement:if_statement{
 |while_statement{
   $$=$1;
 }
+|for_statement{
+  $$=$1;
+}
 |block{
   $$=$1;
 }
@@ -207,6 +216,15 @@ output_statement:OUTPUT expression{
 
 while_statement:WHILE '(' expression ')' block{
   $$=do_while($3,$5);
+}
+;
+
+for_statement:FOR '(' assignment_statement ';' expression ';' assignment_statement ')' block{
+  $$=do_for_loop($3->tac,$5,$7->tac,$9); /* Updated to use do_for_loop */
+}
+|
+FOR '(' declaration ';' expression ';' assignment_statement ')' block{
+  $$=do_for_loop($3,$5,$7->tac,$9); /* Updated to use do_for_loop */
 }
 ;
 

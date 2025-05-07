@@ -18,6 +18,12 @@
 
 "double" {return TYPE_DOUBLE;}
 
+"char" {return TYPE_CHAR;} /* New */
+
+"void" {return TYPE_VOID;} /* New */
+
+"for" {return FOR;} /* New */
+
 "return" {return RETURN;}
 
 "output" {return OUTPUT;}

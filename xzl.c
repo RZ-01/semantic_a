@@ -79,6 +79,66 @@ TAC* do_while(EXP* exp,TAC* tac){
     code=join_tac(code,do_if(exp,tac,NULL));
 }
 
+//for语句的三地址码
+/* TAC* do_for(EXP* init_exp, EXP* cond_exp, EXP* update_exp, TAC* body_tac){
+    TAC *tac1, *tac2, *tac3, *tac4, *tac5;
+    SYM *label1, *label2, *label3;
+
+    label1 = mk_label(NULL); 
+    label2 = mk_label(NULL); 
+    label3 = mk_label(NULL); 
+
+    tac1 = init_exp->tac; 
+
+    tac2 = mk_tac(TAC_LABEL, label1, NULL, NULL); 
+    tac2 = join_tac(tac2, cond_exp->tac);
+    tac2 = join_tac(tac2, mk_tac(TAC_IFZ, label3, cond_exp->ret, NULL)); 
+    tac2 = join_tac(tac2, mk_tac(TAC_GOTO, label2, NULL, NULL));       
+
+    tac3 = mk_tac(TAC_LABEL, label2, NULL, NULL); 
+    tac3 = join_tac(tac3, body_tac);               
+    tac3 = join_tac(tac3, update_exp->tac);         
+    tac3 = join_tac(tac3, mk_tac(TAC_GOTO, label1, NULL, NULL)); 
+
+    tac4 = mk_tac(TAC_LABEL, label3, NULL, NULL); 
+
+    tac5 = join_tac(tac1, tac2);
+    tac5 = join_tac(tac5, tac3);
+    tac5 = join_tac(tac5, tac4);
+
+    return tac5;
+}
+
+//for语句的三地址码（带声明）
+TAC* do_for_decl(TAC* decl_tac, EXP* cond_exp, EXP* update_exp, TAC* body_tac){
+    TAC *tac1, *tac2, *tac3, *tac4, *tac5;
+    SYM *label1, *label2, *label3;
+
+    label1 = mk_label(NULL); 
+    label2 = mk_label(NULL); 
+    label3 = mk_label(NULL); 
+
+    tac1 = decl_tac; 
+
+    tac2 = mk_tac(TAC_LABEL, label1, NULL, NULL); 
+    tac2 = join_tac(tac2, cond_exp->tac);
+    tac2 = join_tac(tac2, mk_tac(TAC_IFZ, label3, cond_exp->ret, NULL)); 
+    tac2 = join_tac(tac2, mk_tac(TAC_GOTO, label2, NULL, NULL));       
+
+    tac3 = mk_tac(TAC_LABEL, label2, NULL, NULL); 
+    tac3 = join_tac(tac3, body_tac);               
+    tac3 = join_tac(tac3, update_exp->tac);         
+    tac3 = join_tac(tac3, mk_tac(TAC_GOTO, label1, NULL, NULL)); 
+
+    tac4 = mk_tac(TAC_LABEL, label3, NULL, NULL); 
+
+    tac5 = join_tac(tac1, tac2);
+    tac5 = join_tac(tac5, tac3);
+    tac5 = join_tac(tac5, tac4);
+
+    return tac5;
+} */
+
 //赋值语句的三地址码
 TAC* do_assign(SYM *var, EXP *exp){
     TAC* tac;

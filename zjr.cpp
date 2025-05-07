@@ -223,4 +223,45 @@ void tac_complete() {
         tac=tac->previous;
     }
     tac_first=tac;
-} 
+}
+
+// Combined for loop TAC generation
+TAC* do_for_loop(TAC* init_tac, EXP* cond_exp, EXP* update_exp, TAC* body_tac) {
+    TAC *tac_cond_setup, *tac_loop_body, *tac_exit_label, *result_tac;
+    SYM *label_cond, *label_body, *label_exit;
+
+    // Create unique labels for the loop parts
+    label_cond = mk_label(nullptr); // Label for condition check
+    label_body = mk_label(nullptr); // Label for body execution
+    label_exit = mk_label(nullptr); // Label for loop exit
+
+    // Condition check part
+    tac_cond_setup = mk_tac(TAC_LABEL, label_cond, nullptr, nullptr); // L_cond:
+    if (cond_exp) { // Condition might be empty (infinite loop)
+        tac_cond_setup = join_tac(tac_cond_setup, cond_exp->tac);
+        // if condition is false (0), jump to exit label
+        tac_cond_setup = join_tac(tac_cond_setup, mk_tac(TAC_IFZ, label_exit, cond_exp->ret, nullptr));
+    }
+    // If condition is true (or no condition), jump to body
+    tac_cond_setup = join_tac(tac_cond_setup, mk_tac(TAC_GOTO, label_body, nullptr, nullptr));
+
+    // Loop body part
+    tac_loop_body = mk_tac(TAC_LABEL, label_body, nullptr, nullptr); // L_body:
+    tac_loop_body = join_tac(tac_loop_body, body_tac);             // Body TACs
+    if (update_exp) { // Update expression might be empty
+        tac_loop_body = join_tac(tac_loop_body, update_exp->tac);     // Update TACs
+    }
+    tac_loop_body = join_tac(tac_loop_body, mk_tac(TAC_GOTO, label_cond, nullptr, nullptr)); // Jump back to condition check
+
+    // Exit label
+    tac_exit_label = mk_tac(TAC_LABEL, label_exit, nullptr, nullptr); // L_exit:
+
+    // Join all parts
+    // Initialization -> Condition Setup -> Loop Body -> Exit Label
+    result_tac = init_tac; // Start with initialization TACs (either from declaration or assignment)
+    result_tac = join_tac(result_tac, tac_cond_setup);
+    result_tac = join_tac(result_tac, tac_loop_body);
+    result_tac = join_tac(result_tac, tac_exit_label);
+
+    return result_tac;
+}

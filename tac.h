@@ -9,6 +9,8 @@
 #define UNDEF_TYPE 0
 #define INT_TYPE 1
 #define DOUBLE_TYPE 2
+#define CHAR_TYPE 3 /* New */
+#define VOID_TYPE 4 /* New */
 
 #define TAC_UNDEF 0 /* undefine */
 #define TAC_ADD 1 /* a=b+c */
@@ -35,6 +37,10 @@
 #define TAC_RETURN 22 /* return a */
 #define TAC_INPUT 23 /* input a */
 #define TAC_OUTPUT 24 /* output a */
+#define TAC_FOR 25 /* New */
+#define TAC_FOR_INIT 26 /* New */
+#define TAC_FOR_COND 27 /* New */
+#define TAC_FOR_UPDATE 28 /* New */
 
 typedef struct sym
 {
@@ -101,6 +107,9 @@ TAC* do_input(char* name);//input语句的三地址码
 TAC* do_output(EXP* exp);//输出一个变量的三地址码
 TAC* do_while(EXP* exp,TAC* tac);//while语句的三地址码
 TAC* do_assign(SYM *var, EXP *exp);//赋值语句的三地址码
+// TAC* do_for(EXP* init_exp, EXP* cond_exp, EXP* update_exp, TAC* body_tac); 
+// TAC* do_for_decl(TAC* decl_tac, EXP* cond_exp, EXP* update_exp, TAC* body_tac); 
+TAC* do_for_loop(TAC* init_tac, EXP* cond_exp, EXP* update_exp, TAC* body_tac); /* New combined function */
 void add_type(int type,SYM* sym_list);//给之前加入符号表的变量加上类型,修改varType
 TAC* do_declaration(EXP* exp_list);//生成变量定义的三地址码
 EXP* mk_exp(SYM* ret,TAC* tac,EXP* next);//初始化一个EXP*类型变量

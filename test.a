@@ -1,36 +1,60 @@
-int max(int x,int y)
-{
-    if(x>y)
-    {
-        return x;
-    }
-    elif(x==y)
-    {
-        return x;
-    }
-    else
-    {
-        return y;
-    }
+// Test file for new syntax features: char, void, for loop
+
+// Definition of a void function
+void print_separator() {
+  output "--------------------";
 }
 
-int main()
-{
-    int a=1,b,c=3;
-    b=a*c+3+a;
-    int d=call max(a,b);
-    int i=10;
-    int g;
-    g=3;
-    while(i>0)
-    {
-        i=i-1;
-        d=d+c;
-    }
-    if(i==0)
-    {
-        output d;
-    }
-    output a;
-    return 0;
+// Another void function
+void simple_void_action() {
+  output "simple_void_action was called.";
+}
+
+// Main function
+int main() {
+  int i_loop_var; 
+  char char_loop_var; 
+  char another_char_var;
+
+  output "Test 1: For loop with pre-declared int variable";
+  call print_separator();
+  for (i_loop_var = 1; i_loop_var < 4; i_loop_var = i_loop_var + 1) { // Iterates 1, 2, 3
+    output "Loop 1 - Iteration:";
+    output i_loop_var;
+    call print_separator();
+  }
+
+  output "Test 2: For loop with in-loop int variable declaration";
+  call print_separator();
+  // Syntax: for (declaration; expression; assignment_statement)
+  // declaration: type identifier = value; (ends with a semicolon as per grammar)
+  for (int k_loop_var = 10; k_loop_var < 12; k_loop_var = k_loop_var + 1) { // Iterates 10, 11
+    output "Loop 2 - Iteration:";
+    output k_loop_var; 
+    call print_separator();
+  }
+
+  output "Test 3: For loop with pre-declared char variable (using integer ASCII values)";
+  call print_separator();
+  // Char literals like 'A' are not supported by the lexer yet.
+  for (char_loop_var = 65; char_loop_var < 68; char_loop_var = char_loop_var + 1) { // ASCII for A, B, C
+    output "Loop 3 - Char var (as int):";
+    output char_loop_var; // Expected output: 65, 66, 67
+    call print_separator();
+  }
+
+  output "Test 4: Char variable assignment and output";
+  call print_separator();
+  another_char_var = 70; // ASCII for 'F'
+  output "Single char var (as int):";
+  output another_char_var; // Expected output: 70
+  call print_separator();
+
+  output "Test 5: Calling void functions";
+  call print_separator();
+  call simple_void_action(); 
+  call print_separator();
+  
+  output "All tests complete.";
+  return 0;
 }
