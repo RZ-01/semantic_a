@@ -1,60 +1,89 @@
-#include"tac.h"
-#include"y.tab.h"
+#include "tac.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-FILE* x;
-int scope, next_tmp, next_label;
-SYM *sym_tab_global, *sym_tab_local;
-TAC *tac_first, *tac_last;
+// Define YYDEBUG before including y.tab.h
+#define YYDEBUG 1
 
-int main(int argc,   char *argv[])
-{
-	if(argc != 2)
-	{
-		printf("usage: %s filename\n", argv[0]);
-		exit(0);
-	}
-	
-	char *input = argv[1];
-	if(input[strlen(input)-1]!='a')
-	{
-		printf("%s does not end with .a\n", input);
-		exit(0);
-	}
+#include "y.tab.h"
 
-	if(freopen(input, "r", stdin)==NULL) error("open %s failed\n", input);
+FILE* output_file;
+extern FILE* yyin;
+extern int yyparse(void); 
 
-	char *output=strdup(input);
-	output[strlen(output)-1]='x';
-
-	if((x=fopen(output,"w"))==NULL) error("open %s failed\n", output);
-
-	init();
-
-	yyparse();
-
-	out_tac_list();
-
-	return 0;
+// Add a debug function for lexer
+void print_token(int token, char* lexeme) {
+    fprintf(stderr, "Token: %d, Lexeme: %s\n", token, lexeme ? lexeme : "");
 }
 
-/*int main(int argc, char *argv[]) {
-
-	if(argc!=2) {
-		printf("usage: %s filename\n", argv[0]);
-		exit(0);
-	}			
-
-	if( (yyin=fopen(argv[1], "r")) ==NULL )
-	{
-		printf("open file %s failed\n", argv[1]);
-		exit(0);
-	}
-
-	yyparse();
-
-	fclose(yyin);
-	return 0;
-}*/
+int main(int argc, char *argv[]) {
+    if (argc != 2) {
+        fprintf(stderr, "用法: %s 输入文件\n", argv[0]);
+        exit(1);
+    }
+    
+    char *input_filename = argv[1];
+    size_t len = strlen(input_filename);
+    
+    // 检查文件扩展名
+    if (len < 3 || input_filename[len-3] != '.' || 
+        input_filename[len-2] != 'c' || input_filename[len-1] != 'l') {
+        fprintf(stderr, "输入文件必须以 .cl 扩展名结尾\n");
+        exit(1);
+    }
+    
+    // 打开输入文件
+    if ((yyin = fopen(input_filename, "r")) == NULL) {
+        fprintf(stderr, "无法打开输入文件 %s\n", input_filename);
+        exit(1);
+    }
+    
+    // 创建输出文件名
+    char *output_filename = strdup(input_filename);
+    output_filename[len-2] = 't';
+    output_filename[len-1] = 'a';
+    output_filename[len] = 'c';
+    output_filename[len+1] = '\0';
+    
+    // 打开输出文件
+    if ((output_file = fopen(output_filename, "w")) == NULL) {
+        fprintf(stderr, "无法创建输出文件 %s\n", output_filename);
+        exit(1);
+    }
+    
+    // 初始化编译器
+    init();
+    
+    printf("Starting lexical analysis...\n");
+    
+    // 打印文件内容以验证读取正确
+    printf("File content check:\n");
+    rewind(yyin);
+    int c;
+    while ((c = fgetc(yyin)) != EOF) {
+        putchar(c);
+    }
+    rewind(yyin);
+    
+    // 执行语法分析和语义分析
+    printf("Starting parser...\n");
+    int parse_result = yyparse();
+    printf("Parser returned: %d\n", parse_result);
+    
+    if (parse_result == 0) {
+        printf("Parsing complete, generating code...\n");
+        // 输出三地址码
+        out_tac_list();
+        printf("编译成功: 输出文件为 %s\n", output_filename);
+    } else {
+        printf("Parsing failed with code %d\n", parse_result);
+    }
+    
+    // 清理资源
+    fclose(yyin);
+    fclose(output_file);
+    free(output_filename);
+    
+    return 0;
+}

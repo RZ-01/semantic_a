@@ -1,114 +1,151 @@
-#include<stdio.h>
-#define SYM_UNDEF 0
-#define SYM_VAR 1
-#define SYM_FUNC 2
-#define SYM_LABEL 3
-#define SYM_TEXT 4
-#define SYM_INT 5
+#ifndef _TAC_H_
+#define _TAC_H_
 
-#define UNDEF_TYPE 0
-#define INT_TYPE 1
-#define DOUBLE_TYPE 2
+#include <stdio.h>
+#include <stdlib.h>
 
-#define TAC_UNDEF 0 /* undefine */
-#define TAC_ADD 1 /* a=b+c */
-#define TAC_SUB 2 /* a=b-c */
-#define TAC_MUL 3 /* a=b*c */
-#define TAC_DIV 4 /* a=b/c */
-#define TAC_EQ 5 /* a=(b==c) */
-#define TAC_NE 6 /* a=(b!=c) */
-#define TAC_LT 7 /* a=(b<c) */
-#define TAC_LE 8 /* a=(b<=c) */
-#define TAC_GT 9 /* a=(b>c) */
-#define TAC_GE 10 /* a=(b>=c) */
-#define TAC_NEG 11 /* a=-b */
-#define TAC_COPY 12 /* a=b */
-#define TAC_GOTO 13 /* goto a */
-#define TAC_IFZ 14 /* ifz b goto a */
-#define TAC_BEGINFUNC 15 /* function begin */
-#define TAC_ENDFUNC 16 /* function end */
-#define TAC_LABEL 17 /* label a */
-#define TAC_VAR 18 /* int a */
-#define TAC_FORMAL 19 /* formal a */
-#define TAC_ACTUAL 20 /* actual a */
-#define TAC_CALL 21 /* a=call b */
-#define TAC_RETURN 22 /* return a */
-#define TAC_INPUT 23 /* input a */
-#define TAC_OUTPUT 24 /* output a */
+/* 符号类型 */
+#define SYM_UNDEF   0  // 未定义符号
+#define SYM_VAR     1  // 变量
+#define SYM_FUNC    2  // 函数
+#define SYM_LABEL   3  // 标签
+#define SYM_TEXT    4  // 文本
+#define SYM_INT     5  // 整型常量
+#define SYM_ARRAY   6  // 数组
+#define SYM_CONST   7  // 常量变量
 
-typedef struct sym
-{
-	int type;
-	int scope; // 0:global, 1:local
-	char *name;
-	int offset;
-	int value;
-	int label;
-	struct tac *address; //SYM_FUNC
-	struct sym *next;
-	void *etc;
-	int* para;//对于函数，需要保存各个参数的类型,如果不是函数则为NULL
-	int retType;//对于函数，表示其返回值的类型
-	int varType;//对于变量，无论是形参还是实参，都保存这个变量的类型
+/* 数据类型 */
+#define UNDEF_TYPE  0  // 未定义类型
+#define INT_TYPE    1  // 整型
+#define FLOAT_TYPE  2  // 浮点型
+#define BOOL_TYPE   3  // 布尔型
+#define STRING_TYPE 4  // 字符串型
+
+/* 三地址码操作类型 */
+#define TAC_UNDEF        0   // 未定义
+#define TAC_ADD          1   // a = b + c
+#define TAC_SUB          2   // a = b - c
+#define TAC_MUL          3   // a = b * c
+#define TAC_DIV          4   // a = b / c
+#define TAC_MOD          5   // a = b % c
+#define TAC_EQ           6   // a = (b == c)
+#define TAC_NE           7   // a = (b != c)
+#define TAC_LT           8   // a = (b < c)
+#define TAC_LE           9   // a = (b <= c)
+#define TAC_GT           10  // a = (b > c)
+#define TAC_GE           11  // a = (b >= c)
+#define TAC_NEG          12  // a = -b
+#define TAC_COPY         13  // a = b
+#define TAC_GOTO         14  // goto a
+#define TAC_IFZ          15  // if z goto a
+#define TAC_IFNZ         16  // if !z goto a
+#define TAC_BEGINFUNC    17  // 函数开始
+#define TAC_ENDFUNC      18  // 函数结束
+#define TAC_LABEL        19  // 标签
+#define TAC_VAR          20  // 变量声明
+#define TAC_FORMAL       21  // 形参
+#define TAC_ACTUAL       22  // 实参
+#define TAC_CALL         23  // a = call b
+#define TAC_RETURN       24  // return a
+#define TAC_INPUT        25  // input a
+#define TAC_OUTPUT       26  // output a
+#define TAC_AND          27  // a = b && c
+#define TAC_OR           28  // a = b || c
+#define TAC_NOT          29  // a = !b
+#define TAC_ARRAY_INDEX  30  // a = b[c]
+#define TAC_ARRAY_ASSIGN 31  // a[b] = c
+#define TAC_FOR_INIT     32  // for初始化
+#define TAC_FOR_COND     33  // for条件
+#define TAC_FOR_UPDATE   34  // for更新
+
+/* 符号表项结构 */
+typedef struct sym {
+    int type;            // 符号类型
+    int scope;           // 作用域: 0全局, 1局部
+    char *name;          // 符号名称
+    int offset;          // 偏移量
+    int value;           // 值（对于常量）
+    int label;           // 标签编号
+    struct sym *address; // 地址
+    struct sym *next;    // 链表下一项
+    void *etc;           // 额外信息
+    int* para;           // 函数参数类型列表
+    int retType;         // 函数返回类型
+    int varType;         // 变量类型
+    int size;            // 数组大小
+    int isConst;         // 是否为常量
 } SYM;
 
-typedef struct tac{
-	SYM *a;
-	SYM *b;
-	SYM *c;
-	int op;
-	struct tac* next;
-	struct tac* previous;
-}TAC;
+/* 三地址码结构 */
+typedef struct tac {
+    SYM *a;              // 目标/结果
+    SYM *b;              // 操作数1
+    SYM *c;              // 操作数2
+    int op;              // 操作类型
+    struct tac* next;    // 下一条指令
+    struct tac* previous;// 上一条指令
+} TAC;
 
-typedef struct exp{
-	SYM *ret;
-	TAC *tac;
-	struct exp *next;
-	void *etc;
-}EXP;
+/* 表达式结构 */
+typedef struct exp {
+    SYM *ret;            // 结果符号
+    TAC *tac;            // 相关的三地址码
+    struct exp *next;    // 下一个表达式
+    void *etc;           // 额外信息
+} EXP;
 
-extern FILE *x,*yyin;
-//next_tmp表示临时变量序号,临时变量名称如：t0。如果存在自定义的变量名称为t0?
-//next_label表示生成的三地址码的label序号
-//scope 1:local 0:global
+/* 全局变量声明 */
+extern FILE *output_file;  // This should be declared, not defined
+extern FILE *yyin;
 extern int yylineno, scope, next_tmp, next_label;
 extern SYM *sym_tab_global, *sym_tab_local;
 extern TAC *tac_first, *tac_last;
 
-//所有三地址码在输出到文件前都以TAC类型存储
-void init();//初始化变量，如sym_tab_global,scope,next_tmp;
-TAC* join_tac(TAC* a,TAC* b);//找到b这个保存TAC*类型的链表中的第一个TAC* t，然后t->next=a,返回b，即这个链表中的最后一个元素
-SYM* get_var(char* name); //将变量从符号表中取出来
-TAC* declare_func(char* name,TAC* parameters);//声明函数，返回这个函数
-TAC* declare_para(char* name,int type);//声明参数，生成对应的三地址码，这个三地址码中的a中的varType=type
-TAC* do_func(int retType,TAC* func,TAC* codes);//根据函数的返回值类型，函数名，函数中的代码生成对应的三地址码
-void tac_complete();
-SYM* do_var(char* name);//定义一个变量，此时的varType为TYPE_UNDEF,value默认为0,将其加入符号表中，返回这个变量
-SYM* do_init_var(char* name,int value);//定义一个变量，此时的varType为TYPE_UNDEF，将其加入符号表中，返回这个变量
-TAC* mk_tac(int op, SYM *a, SYM *b, SYM *c);
-SYM* lookup_sym(char* name);//通过标识符名称查找符号表
-EXP* do_bin( int binop, EXP *exp1, EXP *exp2);//对于两个表达式进行算术运算，注意，中间值需要生成一个中间变量，这里使用mk_tmp()
-SYM* mk_tmp();//生成一个中间变量
-SYM* mk_label(char *name);//生成一个label，在进行跳转的时候需要使用
-EXP *do_cmp( int binop, EXP *exp1, EXP *exp2);//同样需要一个中间变量，这里进行的是比较的运算
-EXP* do_call_ret(char* name,EXP* exp);//调用函数
-TAC* do_if(EXP *exp, TAC *blk, TAC* elif);//使用if语句，生成对应三地址码，最后跳转到label处
-TAC* do_else(TAC *blk);//if-else语句中的else部分的三地址码
-TAC* do_ifelif(EXP *exp, TAC *blk, TAC* elif);//生成if-else语句的三地址码
-TAC* do_return(EXP* exp);//return语句的三地址码
-TAC* do_input(char* name);//input语句的三地址码
-TAC* do_output(EXP* exp);//输出一个变量的三地址码
-TAC* do_while(EXP* exp,TAC* tac);//while语句的三地址码
-TAC* do_assign(SYM *var, EXP *exp);//赋值语句的三地址码
-void add_type(int type,SYM* sym_list);//给之前加入符号表的变量加上类型,修改varType
-TAC* do_declaration(EXP* exp_list);//生成变量定义的三地址码
-EXP* mk_exp(SYM* ret,TAC* tac,EXP* next);//初始化一个EXP*类型变量
-void error(const char *format, ...);
-SYM* mk_const(int value);
-SYM* insert_sym(SYM* sym);
-SYM* insert_const(SYM* sym);
-SYM* mk_sym();
-void out_tac_list();
-SYM* mk_text(char* text);
-void out_tac(FILE* f,TAC* tac);
+/* 函数声明 */
+void init();                                 // 初始化
+TAC* join_tac(TAC* a, TAC* b);              // 连接TAC
+SYM* get_var(char* name);                   // 获取变量
+TAC* declare_func(char* name, TAC* parameters); // 声明函数
+TAC* declare_para(char* name, int type);    // 声明参数
+TAC* do_func(int retType, TAC* func, TAC* codes); // 处理函数定义
+void tac_complete();                        // 完成TAC生成
+SYM* do_var(char* name);                    // 变量定义
+SYM* do_init_var(char* name, int value, int type); // 变量定义并初始化
+TAC* mk_tac(int op, SYM *a, SYM *b, SYM *c); // 创建TAC
+SYM* lookup_sym(char* name);                // 查找符号
+EXP* do_bin(int binop, EXP *exp1, EXP *exp2); // 二元操作
+SYM* mk_tmp();                              // 创建临时变量
+SYM* mk_label(char *name);                  // 创建标签
+EXP* do_cmp(int binop, EXP *exp1, EXP *exp2); // 比较操作
+EXP* do_call_ret(char* name, EXP* exp);     // 函数调用
+TAC* do_if(EXP *exp, TAC *blk);             // if语句
+TAC* do_if_else(EXP *exp, TAC *blk1, TAC *blk2); // if-else语句
+TAC* do_return(EXP* exp);                   // return语句
+TAC* do_input(char* name);                  // 输入语句
+TAC* do_output(EXP* exp);                   // 输出语句
+TAC* do_while(EXP* exp, TAC* tac);          // while循环
+TAC* do_assign(SYM *var, EXP *exp);         // 赋值语句
+void add_type(int type, EXP* exp_list);     // 添加类型
+TAC* do_declaration(EXP* exp_list);         // 声明语句
+EXP* mk_exp(SYM* ret, TAC* tac, EXP* next); // 创建表达式
+void error(const char *format, ...);        // 错误处理
+SYM* mk_const(int value);                   // 创建常量
+SYM* insert_sym(SYM* sym);                  // 插入符号
+SYM* insert_const(SYM* sym);                // 插入常量
+SYM* mk_sym();                              // 创建符号
+void out_tac_list();                        // 输出TAC列表
+SYM* mk_text(char* text);                   // 创建文本
+void out_tac(FILE* f, TAC* tac);            // 输出单条TAC
+SYM* mk_array(char* name, int size);        // 创建数组
+SYM* do_const_var(char* name, int value);   // 创建常量变量
+EXP* do_array_index(SYM* array, EXP* index); // 数组索引
+TAC* do_array_assign(SYM* array, EXP* index, EXP* value); // 数组赋值
+EXP* do_bool_literal(int value);            // 布尔字面量
+EXP* do_logic(int op, EXP *exp1, EXP *exp2); // 逻辑操作
+EXP* do_not(EXP *exp);                       // 逻辑非操作
+TAC* do_for(TAC* init, EXP* cond, TAC* update, TAC* body); // for循环
+
+int yylex(void);                           // 词法分析函数
+void yyerror(char* msg);                   // 语法错误函数
+
+#endif /* _TAC_H_ */
