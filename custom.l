@@ -19,6 +19,7 @@ letter      [a-zA-Z]
 id          {letter}({letter}|{digit}|_)*
 whitespace  [ \t\r\n]+
 integer     {digit}+
+float       {digit}+\.{digit}+([eE][+-]?{digit}+)?
 string      \"[^"]*\"
 comment     \/\/.*\n
 
@@ -45,6 +46,7 @@ comment     \/\/.*\n
 
 {id}        { yylval.string = strdup(yytext); token_debug("IDENTIFIER", IDENTIFIER); return IDENTIFIER; }
 {integer}   { yylval.string = strdup(yytext); token_debug("INTEGER", INTEGER); return INTEGER; }
+{float}     { yylval.string = strdup(yytext); token_debug("FLOAT_LITERAL", FLOAT_LITERAL); return FLOAT_LITERAL; }
 {string}    { yylval.string = strdup(yytext); token_debug("STRING_LITERAL", STRING_LITERAL); return STRING_LITERAL; }
 
 "++"        { return INC; }

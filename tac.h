@@ -13,6 +13,7 @@
 #define SYM_INT     5  // 整型常量
 #define SYM_ARRAY   6  // 数组
 #define SYM_CONST   7  // 常量变量
+#define SYM_FLOAT   8  // 浮点型常量
 
 /* 数据类型 */
 #define UNDEF_TYPE  0  // 未定义类型
@@ -64,7 +65,8 @@ typedef struct sym {
     int scope;           // 作用域: 0全局, 1局部
     char *name;          // 符号名称
     int offset;          // 偏移量
-    int value;           // 值（对于常量）
+    int value;           // 整型值（对于整型常量）
+    float float_value;   // 浮点值（对于浮点型常量）
     int label;           // 标签编号
     struct sym *address; // 地址
     struct sym *next;    // 链表下一项
@@ -111,6 +113,7 @@ TAC* do_func(int retType, TAC* func, TAC* codes); // 处理函数定义
 void tac_complete();                        // 完成TAC生成
 SYM* do_var(char* name);                    // 变量定义
 SYM* do_init_var(char* name, int value, int type); // 变量定义并初始化
+SYM* do_init_float_var(char* name, float value, int type); // 浮点变量定义并初始化
 TAC* mk_tac(int op, SYM *a, SYM *b, SYM *c); // 创建TAC
 SYM* lookup_sym(char* name);                // 查找符号
 EXP* do_bin(int binop, EXP *exp1, EXP *exp2); // 二元操作
@@ -130,6 +133,7 @@ TAC* do_declaration(EXP* exp_list);         // 声明语句
 EXP* mk_exp(SYM* ret, TAC* tac, EXP* next); // 创建表达式
 void error(const char *format, ...);        // 错误处理
 SYM* mk_const(int value);                   // 创建常量
+SYM* mk_float_const(float value);           // 创建浮点常量
 SYM* insert_sym(SYM* sym);                  // 插入符号
 SYM* insert_const(SYM* sym);                // 插入常量
 SYM* mk_sym();                              // 创建符号
@@ -148,4 +152,4 @@ TAC* do_for(TAC* init, EXP* cond, TAC* update, TAC* body); // for循环
 int yylex(void);                           // 词法分析函数
 void yyerror(char* msg);                   // 语法错误函数
 
-#endif /* _TAC_H_ */
+#endif

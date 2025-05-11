@@ -4,13 +4,13 @@
 #include <assert.h>
 #include <stdarg.h>
 
-/* 全局变量定义 */
+/* Global variable definitions */
 extern FILE *output_file;
 int scope = 0, next_tmp = 0, next_label = 0;
 SYM *sym_tab_global = NULL, *sym_tab_local = NULL;
 TAC *tac_first = NULL, *tac_last = NULL;
 
-/* 初始化编译器环境 */
+/* Initialize compiler environment */
 void init() {
     sym_tab_global = NULL;
     sym_tab_local = NULL;
@@ -21,77 +21,69 @@ void init() {
     tac_last = NULL;
 }
 
-/* 创建符号表项 */
+/* Create symbol table entry */
 SYM* mk_sym() {
     SYM* sym = (SYM*)malloc(sizeof(SYM));
     if (!sym) {
-        error("内存分配失败");
+        error("Memory allocation failed");
         exit(1);
     }
     memset(sym, 0, sizeof(SYM));
     return sym;
 }
 
-/* 获取变量 */
+/* Get variable */
 SYM* get_var(char* name) {
     SYM* sym = lookup_sym(name);
     if (!sym) {
-        error("变量未定义: %s", name);
+        error("Variable undefined: %s", name);
     } else if (sym->type != SYM_VAR && sym->type != SYM_ARRAY) {
-        error("标识符不是变量: %s", name);
+        error("Identifier is not a variable: %s", name);
     }
     return sym;
 }
 
-/* 声明函数 */
+/* Declare function */
 TAC* declare_func(char* name, TAC* parameters) {
     SYM* sym = lookup_sym(name);
     
     if (sym == NULL) {
-        // Create new function symbol
         sym = mk_sym();
         sym->type = SYM_FUNC;
         sym->name = strdup(name);
-        
-        // Make sure to set appropriate scope for functions (global)
         sym->scope = 0;
-        
-        // Add to global symbol table explicitly
         sym->next = sym_tab_global;
         sym_tab_global = sym;
     } else {
-        // Function already exists
         if (sym->type == SYM_FUNC) {
-            error("函数重复声明: %s", name);
+            error("Function already declared: %s", name);
         } else {
-            error("标识符已被占用: %s", name);
+            error("Identifier already in use: %s", name);
         }
     }
-    
-    // Count parameters
     int count = 0;
     for (TAC* t = parameters; t != NULL; t = t->previous) count++;
     
     if (count > 0) {
-        sym->para = (int*)malloc(sizeof(int) * (count + 1));  // +1 for terminator
+        sym->para = (int*)malloc(sizeof(int) * (count + 1));  
         count = 0;
         for (TAC* t = parameters; t != NULL; t = t->previous) {
             sym->para[count++] = t->a->varType;
         }
-        sym->para[count] = 0;  // Terminate the list
+        sym->para[count] = 0; 
     } else {
         sym->para = NULL;
     }
     
-    // Create and return function label TAC
+
     return mk_tac(TAC_LABEL, sym, NULL, NULL);
 }
 
-/* 声明参数 */
+/* Declare parameter */
 TAC* declare_para(char* name, int type) {
     SYM* sym = lookup_sym(name);
     if (sym != NULL && sym->scope == scope) {
-        error("参数名称冲突: %s", name);
+        error("Parameter name conflict: %s", name);
     }
     
     sym = mk_sym();
@@ -104,16 +96,14 @@ TAC* declare_para(char* name, int type) {
     return mk_tac(TAC_FORMAL, sym, NULL, NULL);
 }
 
-/* 处理函数定义 */
+/* Handle function definition */
 TAC* do_func(int retType, TAC* func, TAC* codes) {
-    // 找到函数符号
     SYM* sym;
     TAC* t;
     for (t = func; t->previous != NULL; t = t->previous);
     sym = t->a;
     sym->retType = retType;
     
-    // 拼接函数相关的TAC
     TAC* begin = mk_tac(TAC_BEGINFUNC, NULL, NULL, NULL);
     TAC* end = mk_tac(TAC_ENDFUNC, NULL, NULL, NULL);
     
@@ -124,14 +114,14 @@ TAC* do_func(int retType, TAC* func, TAC* codes) {
     return tac;
 }
 
-/* 生成中间变量 */
+/* Generate temporary variable */
 SYM* mk_tmp() {
     char name[32];
     sprintf(name, "t%d", next_tmp++);
     return do_var(name);
 }
 
-/* 生成标签 */
+/* Generate label */
 SYM* mk_label(char* name) {
     char label_name[32];
     if (name == NULL) {
@@ -146,7 +136,7 @@ SYM* mk_label(char* name) {
     return insert_sym(sym);
 }
 
-/* 创建变量 */
+/* Create variable */
 SYM* do_var(char* name) {
     SYM* sym = mk_sym();
     sym->name = strdup(name);
@@ -161,7 +151,7 @@ SYM* do_var(char* name) {
     return insert_sym(sym);
 }
 
-/* 创建并初始化变量 */
+/* Create and initialize variable */
 SYM* do_init_var(char* name, int value, int type) {
     SYM* sym = do_var(name);
     sym->value = value;
@@ -169,11 +159,19 @@ SYM* do_init_var(char* name, int value, int type) {
     return sym;
 }
 
-/* 创建三地址码 */
+/* Create and initialize variable with float value */
+SYM* do_init_float_var(char* name, float value, int type) {
+    SYM* sym = do_var(name);
+    sym->float_value = value;
+    sym->varType = type;
+    return sym;
+}
+
+/* Create three-address code */
 TAC* mk_tac(int op, SYM *a, SYM *b, SYM *c) {
     TAC* tac = (TAC*)malloc(sizeof(TAC));
     if (!tac) {
-        error("内存分配失败");
+        error("Memory allocation failed");
         exit(1);
     }
     
@@ -187,41 +185,33 @@ TAC* mk_tac(int op, SYM *a, SYM *b, SYM *c) {
     return tac;
 }
 
-/* 连接TAC链表 */
+/* Join TAC lists */
 TAC* join_tac(TAC* a, TAC* b) {
     if (a == NULL) return b;
     if (b == NULL) return a;
     
-    // Make a defensive copy of pointer b before manipulation
     TAC* result = b;
     TAC* t = b;
     
-    // Use a hash table approach to detect cycles (simplified with array)
     void* visited[1000] = {NULL};
     int visit_count = 0;
     
-    // Find the head of list b
     while (t->previous != NULL) {
-        // Check for cycles
         for (int i = 0; i < visit_count; i++) {
             if (t->previous == visited[i]) {
-                // Break the cycle silently instead of reporting error
                 t->previous = NULL;
                 goto done_searching;  // Exit the loops
             }
         }
         
-        // Record visited node
         if (visit_count < 1000) {
             visited[visit_count++] = t;
         }
         
-        // Move to previous node if it's safe
         t = t->previous;
     }
     
 done_searching:
-    // Link the lists
     t->previous = a;
     if (a != NULL) {
         a->next = t;
@@ -230,9 +220,8 @@ done_searching:
     return result;
 }
 
-/* 查找符号 */
+/* Lookup symbol */
 SYM* lookup_sym(char* name) {
-    // First search for functions in global scope - more explicit search
     SYM* p = sym_tab_global;
     while (p != NULL) {
         if (p->type == SYM_FUNC && strcmp(p->name, name) == 0) {
@@ -241,7 +230,6 @@ SYM* lookup_sym(char* name) {
         p = p->next;
     }
     
-    // Then search local scope for variables if in local scope
     if (scope == 1) {
         p = sym_tab_local;
         while (p != NULL) {
@@ -252,7 +240,6 @@ SYM* lookup_sym(char* name) {
         }
     }
     
-    // Finally search global scope for non-function symbols
     p = sym_tab_global;
     while (p != NULL) {
         if (strcmp(p->name, name) == 0) {
@@ -264,34 +251,32 @@ SYM* lookup_sym(char* name) {
     return NULL;  // Symbol not found
 }
 
-/* 插入符号到符号表 */
+/* Insert symbol into symbol table */
 SYM* insert_sym(SYM* sym) {
     if (scope == 1) {
-        // 局部作用域
+        // Local scope
         SYM* p = sym_tab_local;
         while (p != NULL) {
             if (strcmp(p->name, sym->name) == 0 && p->scope == scope) {
-                error("标识符重定义: %s", sym->name);
+                error("Identifier redefined: %s", sym->name);
                 return p;
             }
             p = p->next;
         }
         
-        // 添加到局部符号表
         sym->next = sym_tab_local;
         sym_tab_local = sym;
     } else {
-        // 全局作用域
+        // Global scope
         SYM* p = sym_tab_global;
         while (p != NULL) {
             if (strcmp(p->name, sym->name) == 0) {
-                error("标识符重定义: %s", sym->name);
+                error("Identifier redefined: %s", sym->name);
                 return p;
             }
             p = p->next;
         }
         
-        // 添加到全局符号表
         sym->next = sym_tab_global;
         sym_tab_global = sym;
     }
@@ -299,18 +284,26 @@ SYM* insert_sym(SYM* sym) {
     return sym;
 }
 
-/* 二元运算 */
+/* Binary operation */
 EXP* do_bin(int binop, EXP *exp1, EXP *exp2) {
-    // 类型检查
-    if (exp1->ret->varType != INT_TYPE && exp1->ret->varType != UNDEF_TYPE) {
-        error("类型错误: 二元运算只支持整型");
-    }
-    if (exp2->ret->varType != INT_TYPE && exp2->ret->varType != UNDEF_TYPE) {
-        error("类型错误: 二元运算只支持整型");
+    // Allow operations between float and int types
+    if ((exp1->ret->varType != INT_TYPE && 
+         exp1->ret->varType != FLOAT_TYPE && 
+         exp1->ret->varType != UNDEF_TYPE) ||
+        (exp2->ret->varType != INT_TYPE && 
+         exp2->ret->varType != FLOAT_TYPE && 
+         exp2->ret->varType != UNDEF_TYPE)) {
+        error("Type error: Binary operations only support numeric types");
     }
     
     SYM* tmp = mk_tmp();
-    tmp->varType = INT_TYPE;
+    
+    // If either operand is float, result is float
+    if (exp1->ret->varType == FLOAT_TYPE || exp2->ret->varType == FLOAT_TYPE) {
+        tmp->varType = FLOAT_TYPE;
+    } else {
+        tmp->varType = INT_TYPE;
+    }
     
     TAC* tac = mk_tac(binop, tmp, exp1->ret, exp2->ret);
     tac = join_tac(exp1->tac, exp2->tac);
@@ -319,11 +312,11 @@ EXP* do_bin(int binop, EXP *exp1, EXP *exp2) {
     return mk_exp(tmp, tac, NULL);
 }
 
-/* 创建表达式 */
+/* Create expression */
 EXP* mk_exp(SYM* ret, TAC* tac, EXP* next) {
     EXP* exp = (EXP*)malloc(sizeof(EXP));
     if (!exp) {
-        error("内存分配失败");
+        error("Memory allocation failed");
         exit(1);
     }
     
@@ -335,8 +328,18 @@ EXP* mk_exp(SYM* ret, TAC* tac, EXP* next) {
     return exp;
 }
 
-/* 比较操作 */
+/* Comparison operation */
 EXP* do_cmp(int binop, EXP *exp1, EXP *exp2) {
+    // Allow comparisons between float and int types
+    if ((exp1->ret->varType != INT_TYPE && 
+         exp1->ret->varType != FLOAT_TYPE && 
+         exp1->ret->varType != UNDEF_TYPE) ||
+        (exp2->ret->varType != INT_TYPE && 
+         exp2->ret->varType != FLOAT_TYPE && 
+         exp2->ret->varType != UNDEF_TYPE)) {
+        error("Type error: Comparison operations only support numeric types");
+    }
+    
     SYM* tmp = mk_tmp();
     tmp->varType = BOOL_TYPE;
     
@@ -346,44 +349,58 @@ EXP* do_cmp(int binop, EXP *exp1, EXP *exp2) {
     return mk_exp(tmp, tac, NULL);
 }
 
-/* 函数调用 */
+/* Create floating-point constant */
+SYM* mk_float_const(float value) {
+    char name[32];
+    sprintf(name, "%f", value);
+    
+    SYM* sym = mk_sym();
+    sym->name = strdup(name);
+    sym->type = SYM_FLOAT;
+    sym->float_value = value;
+    sym->varType = FLOAT_TYPE;
+    
+    SYM* existing = lookup_sym(name);
+    if (existing != NULL && existing->type == SYM_FLOAT && existing->float_value == value) {
+        free(sym->name);
+        free(sym);
+        return existing;
+    }
+    
+    return insert_const(sym);
+}
+
+/* Function call */
 EXP* do_call_ret(char* name, EXP* args) {
     SYM* func = lookup_sym(name);
     if (func == NULL) {
-        error("函数未定义: %s", name);
+        error("Function undefined: %s", name);
         return NULL;
     }
     if (func->type != SYM_FUNC) {
-        error("标识符不是函数: %s", name);
+        error("Identifier is not a function: %s", name);
         return NULL;
     }
     
-    // 创建返回值
     SYM* ret = mk_tmp();
     ret->varType = func->retType;
     
-    // 创建函数调用TAC
     TAC* tac = NULL;
     
-    // 处理参数
     EXP* arg = args;
     int arg_count = 0;
-    
-    // 首先收集参数的TAC
     while (arg != NULL) {
         tac = join_tac(tac, arg->tac);
         arg = arg->next;
         arg_count++;
     }
     
-    // 然后添加参数传递TAC
     arg = args;
     while (arg != NULL) {
         tac = join_tac(tac, mk_tac(TAC_ACTUAL, arg->ret, NULL, NULL));
         arg = arg->next;
     }
     
-    // 函数参数个数检查
     if (func->para != NULL) {
         int param_count = 0;
         while (func->para[param_count] != 0 && param_count < arg_count) {
@@ -391,17 +408,16 @@ EXP* do_call_ret(char* name, EXP* args) {
         }
         
         if (param_count != arg_count) {
-            error("函数 %s 需要 %d 个参数, 但提供了 %d 个", name, param_count, arg_count);
+            error("Function %s requires %d parameters, but %d were provided", name, param_count, arg_count);
         }
     }
     
-    // 最后添加函数调用TAC
     tac = join_tac(tac, mk_tac(TAC_CALL, ret, func, NULL));
     
     return mk_exp(ret, tac, NULL);
 }
 
-/* IF 语句 */
+/* IF statement */
 TAC* do_if(EXP *exp, TAC *blk) {
     SYM* label = mk_label(NULL);
     
@@ -413,7 +429,7 @@ TAC* do_if(EXP *exp, TAC *blk) {
     return tac;
 }
 
-/* IF-ELSE 语句 */
+/* IF-ELSE statement */
 TAC* do_if_else(EXP *exp, TAC *blk1, TAC *blk2) {
     SYM* false_label = mk_label(NULL);
     SYM* end_label = mk_label(NULL);
@@ -429,7 +445,7 @@ TAC* do_if_else(EXP *exp, TAC *blk1, TAC *blk2) {
     return tac;
 }
 
-/* RETURN 语句 */
+/* RETURN statement */
 TAC* do_return(EXP* exp) {
     if (exp == NULL) {
         return mk_tac(TAC_RETURN, NULL, NULL, NULL);
@@ -441,18 +457,18 @@ TAC* do_return(EXP* exp) {
     return tac;
 }
 
-/* INPUT 语句 */
+/* INPUT statement */
 TAC* do_input(char* name) {
     SYM* sym = lookup_sym(name);
     if (sym == NULL) {
-        error("变量未定义: %s", name);
+        error("Variable undefined: %s", name);
         return NULL;
     }
     
     return mk_tac(TAC_INPUT, sym, NULL, NULL);
 }
 
-/* OUTPUT 语句 */
+/* OUTPUT statement */
 TAC* do_output(EXP* exp) {
     if (exp == NULL) {
         return NULL;
@@ -464,7 +480,7 @@ TAC* do_output(EXP* exp) {
     return tac;
 }
 
-/* WHILE 循环 */
+/* WHILE loop */
 TAC* do_while(EXP* exp, TAC* body) {
     SYM* start_label = mk_label(NULL);
     SYM* end_label = mk_label(NULL);
@@ -479,15 +495,14 @@ TAC* do_while(EXP* exp, TAC* body) {
     return tac;
 }
 
-/* 赋值语句 */
+/* Assignment statement */
 TAC* do_assign(SYM *var, EXP *exp) {
-    // 类型检查和转换
     if (var->isConst) {
-        error("无法修改常量变量: %s", var->name);
+        error("Cannot modify constant variable: %s", var->name);
     }
     
     if (var->varType != UNDEF_TYPE && exp->ret->varType != UNDEF_TYPE && var->varType != exp->ret->varType) {
-        error("类型不匹配: 变量 %s 的类型为 %d, 但表达式类型为 %d", var->name, var->varType, exp->ret->varType);
+        error("Type mismatch: Variable %s is of type %d, but expression is of type %d", var->name, var->varType, exp->ret->varType);
     }
     
     TAC* tac = exp->tac;
@@ -496,7 +511,7 @@ TAC* do_assign(SYM *var, EXP *exp) {
     return tac;
 }
 
-/* 添加类型 */
+/* Add type */
 void add_type(int type, EXP* exp_list) {
     for (EXP* e = exp_list; e != NULL; e = e->next) {
         if (e->ret) {
@@ -505,7 +520,7 @@ void add_type(int type, EXP* exp_list) {
     }
 }
 
-/* 声明语句 */
+/* Declaration statement */
 TAC* do_declaration(EXP* exp_list) {
     if (exp_list == NULL) return NULL;
     
@@ -523,7 +538,7 @@ TAC* do_declaration(EXP* exp_list) {
     return tac;
 }
 
-/* 创建常量 */
+/* Create constant */
 SYM* mk_const(int value) {
     char name[32];
     sprintf(name, "%d", value);
@@ -534,7 +549,6 @@ SYM* mk_const(int value) {
     sym->value = value;
     sym->varType = INT_TYPE;
     
-    // 检查符号表中是否已存在该常量
     SYM* existing = lookup_sym(name);
     if (existing != NULL && existing->type == SYM_INT && existing->value == value) {
         free(sym->name);
@@ -545,14 +559,14 @@ SYM* mk_const(int value) {
     return insert_const(sym);
 }
 
-/* 插入常量 */
+/* Insert constant */
 SYM* insert_const(SYM* sym) {
     sym->next = sym_tab_global;
     sym_tab_global = sym;
     return sym;
 }
 
-/* 创建字符串 */
+/* Create string */
 SYM* mk_text(char* text) {
     SYM* sym = mk_sym();
     sym->name = strdup(text);
@@ -562,10 +576,10 @@ SYM* mk_text(char* text) {
     return insert_sym(sym);
 }
 
-/* 创建数组 */
+/* Create array */
 SYM* mk_array(char* name, int size) {
     if (size <= 0) {
-        error("数组大小必须为正数");
+        error("Array size must be positive");
         return NULL;
     }
     
@@ -579,22 +593,22 @@ SYM* mk_array(char* name, int size) {
     return insert_sym(sym);
 }
 
-/* 数组索引 */
+/* Array index */
 EXP* do_array_index(SYM* array, EXP* index) {
     if (array->type != SYM_ARRAY) {
-        error("变量不是数组: %s", array->name);
+        error("Variable is not an array: %s", array->name);
         return NULL;
     }
     
-    // 检查索引是否为整数
+    // Check if index is an integer
     if (index->ret->varType != INT_TYPE && index->ret->varType != UNDEF_TYPE) {
-        error("数组索引必须为整数");
+        error("Array index must be an integer");
     }
     
     SYM* tmp = mk_tmp();
     tmp->varType = array->varType;
-    tmp->address = array; // 保存数组基地址
-    tmp->etc = index;     // 保存索引表达式
+    tmp->address = array; // Save array base address
+    tmp->etc = index;     // Save index expression
     
     TAC* tac = index->tac;
     tac = join_tac(tac, mk_tac(TAC_ARRAY_INDEX, tmp, array, index->ret));
@@ -602,25 +616,23 @@ EXP* do_array_index(SYM* array, EXP* index) {
     return mk_exp(tmp, tac, NULL);
 }
 
-/* 数组赋值 */
+/* Array assignment */
 TAC* do_array_assign(SYM* array, EXP* index, EXP* value) {
     if (array->type != SYM_ARRAY) {
-        error("变量不是数组: %s", array->name);
+        error("Variable is not an array: %s", array->name);
         return NULL;
     }
     
     if (array->isConst) {
-        error("无法修改常量数组: %s", array->name);
+        error("Cannot modify constant array: %s", array->name);
     }
     
-    // 检查索引是否为整数
     if (index->ret->varType != INT_TYPE && index->ret->varType != UNDEF_TYPE) {
-        error("数组索引必须为整数");
+        error("Array index must be an integer");
     }
     
-    // 类型检查
     if (array->varType != UNDEF_TYPE && value->ret->varType != UNDEF_TYPE && array->varType != value->ret->varType) {
-        error("类型不匹配: 数组 %s 元素类型为 %d, 但赋值表达式类型为 %d", array->name, array->varType, value->ret->varType);
+        error("Type mismatch: Array %s element type is %d, but assignment expression type is %d", array->name, array->varType, value->ret->varType);
     }
     
     TAC* tac = join_tac(index->tac, value->tac);
@@ -629,7 +641,7 @@ TAC* do_array_assign(SYM* array, EXP* index, EXP* value) {
     return tac;
 }
 
-/* 创建常量变量 */
+/* Create constant variable */
 SYM* do_const_var(char* name, int value) {
     SYM* sym = do_var(name);
     sym->isConst = 1;
@@ -637,7 +649,7 @@ SYM* do_const_var(char* name, int value) {
     return sym;
 }
 
-/* 布尔字面量 */
+/* Boolean literal */
 EXP* do_bool_literal(int value) {
     SYM* sym = mk_tmp();
     sym->varType = BOOL_TYPE;
@@ -645,14 +657,13 @@ EXP* do_bool_literal(int value) {
     return mk_exp(sym, NULL, NULL);
 }
 
-/* 逻辑操作 */
+/* Logical operation */
 EXP* do_logic(int op, EXP *exp1, EXP *exp2) {
-    // 类型检查
     if (exp1->ret->varType != BOOL_TYPE && exp1->ret->varType != UNDEF_TYPE) {
-        error("类型错误: 逻辑运算需要布尔类型");
+        error("Type error: Logical operations require boolean type");
     }
     if (exp2->ret->varType != BOOL_TYPE && exp2->ret->varType != UNDEF_TYPE) {
-        error("类型错误: 逻辑运算需要布尔类型");
+        error("Type error: Logical operations require boolean type");
     }
     
     SYM* tmp = mk_tmp();
@@ -664,11 +675,10 @@ EXP* do_logic(int op, EXP *exp1, EXP *exp2) {
     return mk_exp(tmp, tac, NULL);
 }
 
-/* 逻辑非操作 */
+/* Logical NOT operation */
 EXP* do_not(EXP *exp) {
-    // 类型检查
     if (exp->ret->varType != BOOL_TYPE && exp->ret->varType != UNDEF_TYPE) {
-        error("类型错误: 逻辑非运算需要布尔类型");
+        error("Type error: Logical NOT operation requires boolean type");
     }
     
     SYM* tmp = mk_tmp();
@@ -680,7 +690,7 @@ EXP* do_not(EXP *exp) {
     return mk_exp(tmp, tac, NULL);
 }
 
-/* FOR 循环 */
+/* FOR loop */
 TAC* do_for(TAC* init, EXP* cond, TAC* update, TAC* body) {
     SYM* start_label = mk_label(NULL);
     SYM* end_label = mk_label(NULL);
@@ -699,7 +709,7 @@ TAC* do_for(TAC* init, EXP* cond, TAC* update, TAC* body) {
     return tac;
 }
 
-/* 完成TAC生成 */
+/* Complete TAC generation */
 void tac_complete() {
     TAC* tac = tac_last;
     if (tac == NULL) return;
@@ -712,7 +722,7 @@ void tac_complete() {
     tac_first = tac;
 }
 
-/* 输出单条TAC */
+/* Output single TAC */
 void out_tac(FILE* f, TAC* tac) {
     if (!f || !tac) return;
     
@@ -816,11 +826,11 @@ void out_tac(FILE* f, TAC* tac) {
             fprintf(f, "%s[%s] = %s\n", tac->a->name, tac->b->name, tac->c->name);
             break;
         default:
-            fprintf(f, "未知操作码: %d\n", tac->op);
+            fprintf(f, "Unknown opcode: %d\n", tac->op);
     }
 }
 
-/* 输出TAC列表 */
+/* Output TAC list */
 void out_tac_list() {
     if (!output_file) return;
     
@@ -830,11 +840,11 @@ void out_tac_list() {
     }
 }
 
-/* 错误处理 */
+/* Error handling */
 void error(const char *format, ...) {
     va_list args;
     va_start(args, format);
-    fprintf(stderr, "错误: 行 %d: ", yylineno);
+    fprintf(stderr, "Error: Line %d: ", yylineno);
     vfprintf(stderr, format, args);
     fprintf(stderr, "\n");
     va_end(args);

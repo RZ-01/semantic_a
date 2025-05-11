@@ -4,28 +4,78 @@ function int factorial(int n) {
   
   while (i <= n) {
     result = result * i;
-    i = i + 1;
+    i++;
   }
   
   return result;
 }
 
-// Main function with various language features
-function int main() {
-  int numbers[5];
-  int i = 0;
-  int result; // Added declaration for result variable
+function float calculate_average(int values) {
+  float sum = 0.0;
+  int i;
   
-  // Initialize array using while loop
-  while (i < 5) {
-    numbers[i] = i * 10;
-    i = i + 1;
+  for (i = 0; i < 5; i++) {
+    sum += values; 
   }
   
-  // Function call (non-recursive)
+  return sum / 5.0;
+}
+
+// Main function with various language features
+function int main() {
+  int a = 10;
+  float pi = 3.14159;
+  string message = "Hello, world!";
+  int result = 0;
+  const int MAX = 100; 
+  bool flag = true;
+  
+  int numbers[5];
+  int i = 0;
+  
+  while (i < 5) {
+    numbers[i] = i * 10;
+    i++; 
+  }
+  int j;
+  for (j = 0; j < MAX; j++) {
+    if (j > 50) {
+      output "Breaking at j > 50";
+      break;  
+    }
+    
+    if (j % 10 != 0) {
+      continue;  
+    }
+    
+    output j;
+  }
+  
+
+  a += 5;  // a = a + 5
+  a -= 2;  // a = a - 2
+  a *= 2;  // a = a * 2
+  a /= 3;  // a = a / 3
+  
+  
+  bool test1 = (a > 5) && (pi > 3.0);
+  bool test2 = (a < 3) || (MAX > 50);
+  bool test3 = !flag;
+  
+  
   output "Factorial of 5 =";
   result = factorial(5);
   output result;
+  
+  output "Average of numbers:";
+  float avg = calculate_average(numbers);
+  output avg;
+  
+  output message;
+  
+  int complex_result = (a + 5) * (MAX / 10) - factorial(3);
+  output "Complex expression result:";
+  output complex_result;
   
   return 0;
 }

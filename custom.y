@@ -15,14 +15,15 @@ void yyerror(char* msg);
   int     type;
   int     value;
   char   *string;
+  float   float_value;
   SYM    *sym;
   TAC    *tac;
   EXP    *exp;
 }
 
-/* --- 符号定义 --- */
 %token <string> IDENTIFIER STRING_LITERAL
 %token <string> INTEGER
+%token <string> FLOAT_LITERAL
 %token <value>  BOOL_LITERAL
 %token TYPE_INT TYPE_FLOAT TYPE_BOOL TYPE_STRING CONST
 %token IF ELSE WHILE FOR BREAK CONTINUE RETURN
@@ -32,7 +33,6 @@ void yyerror(char* msg);
 
 %start program
 
-/* --- 非终结符类型 --- */
 %type <tac>
     program
     global_items global_item function_def
@@ -51,7 +51,6 @@ void yyerror(char* msg);
 %type <type> type_specifier
 %type <value> const_qualifier
 
-/* --- 运算符优先级 --- */
 %right '='
 %right ADD_ASSIGN SUB_ASSIGN MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN
 %left OR
@@ -74,7 +73,7 @@ program:
 ;
 
 global_items:
-    /* 空 */              { $$ = NULL; }
+                  { $$ = NULL; }
   | global_items global_item { $$ = join_tac($1, $2); }
 ;
 
@@ -83,7 +82,6 @@ global_item:
   | function_def          { $$ = $1; }
 ;
 
-/* --- 类型说明符 --- */
 type_specifier:
     TYPE_INT      { $$ = INT_TYPE; }
   | TYPE_FLOAT    { $$ = FLOAT_TYPE; }
@@ -92,11 +90,10 @@ type_specifier:
 ;
 
 const_qualifier:
-    /* 空 */  { $$ = 0; }
+  { $$ = 0; }
   | CONST    { $$ = 1; }
 ;
 
-/* --- 变量声明 --- */
 var_declaration:
     const_qualifier type_specifier init_declarator_list ';' {
         add_type($2, $3);
@@ -127,7 +124,6 @@ init_declarator:
     }
 ;
 
-/* --- 函数定义 --- */
 function_def:
     FUNCTION type_specifier IDENTIFIER '(' parameter_list ')' {
         // Create function symbol in global scope
@@ -162,12 +158,11 @@ function_def:
 ;
 
 parameter_list:
-    /* 空 */                                      { $$ = NULL; }
+                                   { $$ = NULL; }
   | type_specifier IDENTIFIER                     { $$ = declare_para($2, $1); }
   | parameter_list ',' type_specifier IDENTIFIER  { $$ = join_tac($1, declare_para($4, $3)); }
 ;
 
-/* --- 复合语句 --- */
 compound_statement:
     '{' '}'                    { $$ = NULL; }
   | '{' statement_list '}'     { $$ = $2; }
@@ -193,7 +188,6 @@ expression_statement:
   | expression ';'             { $$ = $1; }
 ;
 
-/* --- 选择语句 --- */
 selection_statement:
     IF '(' expression ')' statement {
         $$ = do_if($3, $5);
@@ -203,7 +197,6 @@ selection_statement:
     }
 ;
 
-/* --- 循环语句 --- */
 iteration_statement:
     WHILE '(' expression ')' statement {
         $$ = do_while($3, $5);
@@ -211,9 +204,11 @@ iteration_statement:
   | FOR '(' expression_statement expression_statement expression ')' statement {
         $$ = do_for($3->tac, $4, $5->tac, $7);
     }
+  | FOR '(' var_declaration expression_statement expression ')' statement {
+        $$ = do_for($3->tac, $4, $5->tac, $7);
+    }
 ;
 
-/* --- 跳转语句 --- */
 jump_statement:
     RETURN ';'                 { $$ = do_return(NULL); }
   | RETURN expression ';'      { $$ = do_return($2); }
@@ -221,13 +216,11 @@ jump_statement:
   | CONTINUE ';'               { /* 简化版不处理 */ $$ = NULL; }
 ;
 
-/* --- I/O语句 --- */
 io_statement:
     INPUT IDENTIFIER ';'       { $$ = do_input($2); }
   | OUTPUT expression ';'      { $$ = do_output($2); }
 ;
 
-/* --- 表达式 --- */
 expression:
     assignment_expression      { $$ = $1; }
 ;
@@ -346,6 +339,7 @@ postfix_expression:
 primary_expression:
     IDENTIFIER                 { $$ = mk_exp(get_var($1), NULL, NULL); }
   | INTEGER                    { $$ = mk_exp(mk_const(atoi($1)), NULL, NULL); }
+  | FLOAT_LITERAL              { $$ = mk_exp(mk_float_const(atof($1)), NULL, NULL); }
   | BOOL_LITERAL               { $$ = do_bool_literal($1); }
   | STRING_LITERAL             { $$ = mk_exp(mk_text($1), NULL, NULL); }
   | '(' expression ')'         { $$ = $2; }
