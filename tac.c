@@ -284,9 +284,39 @@ SYM* insert_sym(SYM* sym) {
     return sym;
 }
 
-/* Binary operation */
+/* Type conversion from int to float */
+EXP* do_int_to_float(EXP* exp) {
+    if (exp->ret->varType != INT_TYPE) {
+        error("Type error: Cannot convert non-integer to float");
+    }
+    
+    SYM* tmp = mk_tmp();
+    tmp->varType = FLOAT_TYPE;
+    
+    TAC* tac = exp->tac;
+    tac = join_tac(tac, mk_tac(TAC_INT_TO_FLOAT, tmp, exp->ret, NULL));
+    
+    return mk_exp(tmp, tac, NULL);
+}
+
+/* Type conversion from float to int */
+EXP* do_float_to_int(EXP* exp) {
+    if (exp->ret->varType != FLOAT_TYPE) {
+        error("Type error: Cannot convert non-float to integer");
+    }
+    
+    SYM* tmp = mk_tmp();
+    tmp->varType = INT_TYPE;
+    
+    TAC* tac = exp->tac;
+    tac = join_tac(tac, mk_tac(TAC_FLOAT_TO_INT, tmp, exp->ret, NULL));
+    
+    return mk_exp(tmp, tac, NULL);
+}
+
+/* Enhanced binary operation with type conversion */
 EXP* do_bin(int binop, EXP *exp1, EXP *exp2) {
-    // Allow operations between float and int types
+    // Check if operands are numeric types
     if ((exp1->ret->varType != INT_TYPE && 
          exp1->ret->varType != FLOAT_TYPE && 
          exp1->ret->varType != UNDEF_TYPE) ||
@@ -296,17 +326,23 @@ EXP* do_bin(int binop, EXP *exp1, EXP *exp2) {
         error("Type error: Binary operations only support numeric types");
     }
     
+    // Handle type conversion
+    if (exp1->ret->varType == FLOAT_TYPE && exp2->ret->varType == INT_TYPE) {
+        exp2 = do_int_to_float(exp2);
+    } else if (exp1->ret->varType == INT_TYPE && exp2->ret->varType == FLOAT_TYPE) {
+        exp1 = do_int_to_float(exp1);
+    }
+    
     SYM* tmp = mk_tmp();
     
-    // If either operand is float, result is float
+    // Result type is float if either operand is float
     if (exp1->ret->varType == FLOAT_TYPE || exp2->ret->varType == FLOAT_TYPE) {
         tmp->varType = FLOAT_TYPE;
     } else {
         tmp->varType = INT_TYPE;
     }
     
-    TAC* tac = mk_tac(binop, tmp, exp1->ret, exp2->ret);
-    tac = join_tac(exp1->tac, exp2->tac);
+    TAC* tac = join_tac(exp1->tac, exp2->tac);
     tac = join_tac(tac, mk_tac(binop, tmp, exp1->ret, exp2->ret));
     
     return mk_exp(tmp, tac, NULL);
@@ -328,9 +364,9 @@ EXP* mk_exp(SYM* ret, TAC* tac, EXP* next) {
     return exp;
 }
 
-/* Comparison operation */
+/* Enhanced comparison operation with type conversion */
 EXP* do_cmp(int binop, EXP *exp1, EXP *exp2) {
-    // Allow comparisons between float and int types
+    // Check if operands are numeric types
     if ((exp1->ret->varType != INT_TYPE && 
          exp1->ret->varType != FLOAT_TYPE && 
          exp1->ret->varType != UNDEF_TYPE) ||
@@ -338,6 +374,13 @@ EXP* do_cmp(int binop, EXP *exp1, EXP *exp2) {
          exp2->ret->varType != FLOAT_TYPE && 
          exp2->ret->varType != UNDEF_TYPE)) {
         error("Type error: Comparison operations only support numeric types");
+    }
+    
+    // Handle type conversion
+    if (exp1->ret->varType == FLOAT_TYPE && exp2->ret->varType == INT_TYPE) {
+        exp2 = do_int_to_float(exp2);
+    } else if (exp1->ret->varType == INT_TYPE && exp2->ret->varType == FLOAT_TYPE) {
+        exp1 = do_int_to_float(exp1);
     }
     
     SYM* tmp = mk_tmp();
@@ -849,4 +892,71 @@ void error(const char *format, ...) {
     fprintf(stderr, "\n");
     va_end(args);
     exit(1);
+}
+
+/* Type definition checking */
+void check_type_definition(SYM* sym, int expected_type) {
+    if (sym->varType == UNDEF_TYPE) {
+        sym->varType = expected_type;
+    } else if (sym->varType != expected_type) {
+        error("Type error: Variable %s is of type %d, but expected type %d", 
+              sym->name, sym->varType, expected_type);
+    }
+}
+
+/* Enhanced variable declaration with type checking */
+SYM* do_var_with_type(char* name, int type) {
+    SYM* sym = do_var(name);
+    check_type_definition(sym, type);
+    return sym;
+}
+
+/* Enhanced variable initialization with type checking */
+SYM* do_init_var_with_type(char* name, int value, int type) {
+    SYM* sym = do_init_var(name, value, type);
+    check_type_definition(sym, type);
+    return sym;
+}
+
+/* Enhanced float variable initialization with type checking */
+SYM* do_init_float_var_with_type(char* name, float value, int type) {
+    SYM* sym = do_init_float_var(name, value, type);
+    check_type_definition(sym, type);
+    return sym;
+}
+
+/* Enhanced assignment with type checking */
+TAC* do_assign_with_type_check(SYM *var, EXP *exp) {
+    if (var->isConst) {
+        error("Cannot modify constant variable: %s", var->name);
+    }
+    
+    // If variable type is undefined, set it to expression type
+    if (var->varType == UNDEF_TYPE && exp->ret->varType != UNDEF_TYPE) {
+        var->varType = exp->ret->varType;
+    }
+    
+    // If expression type is undefined, set it to variable type
+    if (exp->ret->varType == UNDEF_TYPE && var->varType != UNDEF_TYPE) {
+        exp->ret->varType = var->varType;
+    }
+    
+    // Type conversion if needed
+    if (var->varType == FLOAT_TYPE && exp->ret->varType == INT_TYPE) {
+        exp = do_int_to_float(exp);
+    } else if (var->varType == INT_TYPE && exp->ret->varType == FLOAT_TYPE) {
+        exp = do_float_to_int(exp);
+    }
+    
+    // Final type check
+    if (var->varType != UNDEF_TYPE && exp->ret->varType != UNDEF_TYPE && 
+        var->varType != exp->ret->varType) {
+        error("Type mismatch: Variable %s is of type %d, but expression is of type %d", 
+              var->name, var->varType, exp->ret->varType);
+    }
+    
+    TAC* tac = exp->tac;
+    tac = join_tac(tac, mk_tac(TAC_COPY, var, exp->ret, NULL));
+    
+    return tac;
 }

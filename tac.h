@@ -58,6 +58,8 @@
 #define TAC_FOR_INIT     32  // for初始化
 #define TAC_FOR_COND     33  // for条件
 #define TAC_FOR_UPDATE   34  // for更新
+#define TAC_INT_TO_FLOAT 35  // int to float conversion
+#define TAC_FLOAT_TO_INT 36  // float to int conversion
 
 /* 符号表项结构 */
 typedef struct sym {
