@@ -1,6 +1,5 @@
 #ifndef _TAC_H_
 #define _TAC_H_
-
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -141,7 +140,7 @@ SYM* insert_const(SYM* sym);                // 插入常量
 SYM* mk_sym();                              // 创建符号
 void out_tac_list();                        // 输出TAC列表
 SYM* mk_text(char* text);                   // 创建文本
-void out_tac(FILE* f, TAC* tac);            // 输出单条TAC
+void out_tac(std::ofstream f, TAC* tac);            // 输出单条TAC
 SYM* mk_array(char* name, int size);        // 创建数组
 SYM* do_const_var(char* name, int value);   // 创建常量变量
 EXP* do_array_index(SYM* array, EXP* index); // 数组索引
