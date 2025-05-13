@@ -294,7 +294,7 @@ unary_expression:
   | '-' unary_expression       {
         SYM* tmp = mk_tmp();
         tmp->varType = INT_TYPE;
-        TAC* tac = join_tac($2->tac, mk_tac(TAC_NEG, tmp, $2->ret, NULL));
+        TAC* tac = join_tac(mk_tac(TAC_VAR,tmp,NULL,NULL),join_tac($2->tac, mk_tac(TAC_NEG, tmp, $2->ret, NULL)));
         $$ = mk_exp(tmp, tac, NULL);
     }
   | NOT unary_expression       { $$ = do_not($2); }
@@ -319,7 +319,7 @@ postfix_expression:
   | lvalue INC                 {
         SYM* tmp = mk_tmp();
         SYM* one = mk_const(1);
-        TAC* tac = mk_tac(TAC_COPY, tmp, $1, NULL);
+        TAC* tac = join_tac(mk_tac(TAC_VAR,tmp,NULL,NULL),mk_tac(TAC_COPY, tmp, $1, NULL));
         EXP* inc = do_bin(TAC_ADD, mk_exp($1, NULL, NULL), mk_exp(one, NULL, NULL));
         tac = join_tac(tac, inc->tac);
         tac = join_tac(tac, do_assign($1, inc));
@@ -328,7 +328,7 @@ postfix_expression:
   | lvalue DEC                 {
         SYM* tmp = mk_tmp();
         SYM* one = mk_const(1);
-        TAC* tac = mk_tac(TAC_COPY, tmp, $1, NULL);
+        TAC* tac = join_tac(mk_tac(TAC_VAR,tmp,NULL,NULL),mk_tac(TAC_COPY, tmp, $1, NULL));
         EXP* dec = do_bin(TAC_SUB, mk_exp($1, NULL, NULL), mk_exp(one, NULL, NULL));
         tac = join_tac(tac, dec->tac);
         tac = join_tac(tac, do_assign($1, dec));

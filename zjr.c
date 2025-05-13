@@ -1,16 +1,9 @@
 #include "obj.h"
-#include <iostream>  
-#include <fstream>   
-#include <sstream>   
-#include <cstdarg>
-#include <string>
+#include "tac.h"
+#include<stdio.h>
+#include<stdlib.h>
 
-std::ofstream file_s;  
 // from FILE* to std::ofstream
-int tos = 0;
-int tof = 0;
-int oof = 0;
-int oon = 0;
 
 // Original C-style 
 /*
@@ -25,13 +18,24 @@ void out_str(std::ofstream& f, const char* format, ...) {
 }
 */
 
-template<typename... Args>
+/*template<typename... Args>
 void out_str(std::ofstream& f, const char* format, Args&&... args) {
     char buffer[1024];
     snprintf(buffer, sizeof(buffer), format, std::forward<Args>(args)...);
     f << buffer;
+}*/
+
+int get_var_size(int type) {
+    switch (type) {
+        case INT_TYPE: return LEN_INT;
+        case FLOAT_TYPE: return LEN_FLOAT;
+        case BOOL_TYPE: return LEN_BOOL;
+        case STRING_TYPE: return LEN_POINTER;
+        default: return LEN_INT;
+    }
 }
 
+/*
 std::string reg_name(int r) {
     if (r >= 0 && r < 16) {
         return "R" + std::to_string(r);
@@ -49,95 +53,7 @@ int get_var_size(int type) {
         default: return LEN_INT;
     }
 }
-
-
-void rdesc_fill(int r, SYM* s, int mod) {
-    for (int old = R_GEN; old < R_NUM; old++) {
-        if (rdesc[old].var == s) {
-            rdesc[old].var = nullptr;
-            rdesc[old].mod = UNMODIFIED;
-        }
-    }
-    
-    rdesc[r].var = s;
-    rdesc[r].mod = mod;
-}
-
-void reg_write_back(int r) {
-    if (rdesc[r].var != nullptr && rdesc[r].mod == MODIFIED) {
-        if (rdesc[r].var->scope == 1) { // local var
-            out_str(file_s, "\tSTO (R%u+%u),R%u\n", R_BP, rdesc[r].var->offset, r);
-        } else { // global var
-            out_str(file_s, "\tLOD R%u,STATIC\n", R_TP);
-            out_str(file_s, "\tSTO (R%u+%u),R%u\n", R_TP, rdesc[r].var->offset, r);
-        }
-        rdesc[r].mod = UNMODIFIED;
-    }
-}
-
-// Function to load a value into a register
-void reg_load(SYM* s, int r) {
-    for (int i = R_GEN; i < R_NUM; i++) {
-        if (rdesc[i].var == s) {
-            out_str(file_s, "\tLOD R%u,R%u\n", r, i);
-            return;
-        }
-    }
-    
-    // Not in a register, load based on type
-    switch (s->type) {
-        case SYM_INT:
-            out_str(file_s, "\tLOD R%u,%u\n", r, s->value);
-            break;
-        
-        case SYM_VAR:
-            if (s->scope == 1) { // local var
-                if (s->offset >= 0) {
-                    out_str(file_s, "\tLOD R%u,(R%u+%d)\n", r, R_BP, s->offset);
-                } else {
-                    out_str(file_s, "\tLOD R%u,(R%u-%d)\n", r, R_BP, -s->offset);
-                }
-            } else { // global var
-                out_str(file_s, "\tLOD R%u,STATIC\n", R_TP);
-                out_str(file_s, "\tLOD R%u,(R%u+%d)\n", r, R_TP, s->offset);
-            }
-            break;
-        
-        case SYM_TEXT:
-            out_str(file_s, "\tLOD R%u,L%u\n", r, s->label);
-            break;
-    }
-}
-
-// Function to allocate register for a symbol
-int reg_alloc(SYM* s) {
-    for (int r = R_GEN; r < R_NUM; r++) {
-        if (rdesc[r].var == s) {
-            return r;
-        }
-    }
-    
-    for (int r = R_GEN; r < R_NUM; r++) {
-        if (rdesc[r].var == nullptr) {
-            reg_load(s, r);
-            rdesc_fill(r, s, UNMODIFIED);
-            return r;
-        }
-    }
-    
-    for (int r = R_GEN; r < R_NUM; r++) {
-        if (rdesc[r].mod == UNMODIFIED) {
-            reg_load(s, r);
-            rdesc_fill(r, s, UNMODIFIED);
-            return r;
-        }
-    }
-    
-    reg_write_back(R_GEN);
-    reg_load(s, R_GEN);
-    rdesc_fill(R_GEN, s, UNMODIFIED);
-    return R_GEN;
-}
+*/
 
 void tac_obj() {
     tof = LOCAL_OFF;
@@ -145,50 +61,50 @@ void tac_obj() {
     oon = 0;
     
     for (int r = 0; r < R_NUM; r++) {
-        rdesc[r].var = nullptr;
+        rdesc[r].var = NULL;
         rdesc[r].mod = UNMODIFIED;
     }
-    
-    file_s.open("output.s");
-    if (!file_s.is_open()) {
-        std::cerr << "Error: Cannot open output file" << std::endl;
+    file_s=fopen("output.s","w");
+    if (file_s==NULL) {
+        printf("Error: Cannot open output file\n");
         return;
     }
-    
+
     asm_head();
     
-    for (TAC* tac = tac_first; tac != nullptr; tac = tac->next) {
-        file_s << "\n\t# ";
+    for (TAC* tac = tac_first; tac != NULL; tac = tac->next) {
+        out_str(file_s ,"\n\t# ");
         out_tac(file_s, tac);
-        file_s << "\n";
+        out_str(file_s , "\n");
         asm_code(tac);
     }
     
     asm_tail();
     asm_static();
     
-    file_s.close();
-    std::cout << "Assembly code generation completed." << std::endl;
+    fclose(file_s);
+    printf("Assembly code generation completed.\n");
 }
 
 void asm_head() {
-    std::string head =
+    char* head =
         "\t# head\n"
         "\tLOD R2,STACK\n"
         "\tSTO (R2),0\n"
         "\tLOD R4,EXIT\n"
-        "\tSTO (R2+4),R4\n";
+        "\tSTO (R2+4),R4\n"
+        "\tJMP main\n";
     
-    out_str(file_s, "%s", head.c_str());
+    out_str(file_s, "%s", head);
 }
 
 void asm_tail() {
-    std::string tail =
+    char* tail =
         "\n\t# tail\n"
         "EXIT:\n"
         "\tEND\n";
     
-    out_str(file_s, "%s", tail.c_str());
+    out_str(file_s, "%s", tail);
 }
 
 void asm_str(SYM* s) {
@@ -220,7 +136,7 @@ void asm_str(SYM* s) {
 }
 
 void asm_static() {
-    for (SYM* sl = sym_tab_global; sl != nullptr; sl = sl->next) {
+    for (SYM* sl = sym_tab_global; sl != NULL; sl = sl->next) {
         if (sl->type == SYM_TEXT) {
             asm_str(sl);
         }
@@ -248,23 +164,11 @@ void asm_code(TAC* tac) {
             break;
         
         case TAC_ADD:
-            asm_bin("ADD", tac->a, tac->b, tac->c);
-            break;
-        
         case TAC_SUB:
-            asm_bin("SUB", tac->a, tac->b, tac->c);
-            break;
-        
         case TAC_MUL:
-            asm_bin("MUL", tac->a, tac->b, tac->c);
-            break;
-        
         case TAC_DIV:
-            asm_bin("DIV", tac->a, tac->b, tac->c);
-            break;
-        
-        case TAC_NEG:
-            asm_bin("SUB", tac->a, mk_const(0), tac->b);
+        //case TAC_NEG:
+            asm_bin(tac);
             break;
         
         case TAC_EQ:
@@ -273,31 +177,20 @@ void asm_code(TAC* tac) {
         case TAC_LE:
         case TAC_GT:
         case TAC_GE:
-            asm_cmp(tac->op, tac->a, tac->b, tac->c);
+            asm_cmp(tac);
             break;
         
         case TAC_INPUT:
-            r = reg_alloc(tac->a);
-            out_str(file_s, "\tIN\n");
-            out_str(file_s, "\tLOD R%u,R15\n", r);
-            rdesc[r].mod = MODIFIED;
+            asm_input(tac);
             break;
         
         case TAC_OUTPUT:
-            if (tac->a->type == SYM_VAR) {
-                r = reg_alloc(tac->a);
-                out_str(file_s, "\tLOD R15,R%u\n", r);
-                out_str(file_s, "\tOUTN\n");
-            } else if (tac->a->type == SYM_TEXT) {
-                r = reg_alloc(tac->a);
-                out_str(file_s, "\tLOD R15,R%u\n", r);
-                out_str(file_s, "\tOUTS\n");
-            }
+            asm_output(tac);
             break;
         
         case TAC_GOTO:
             for (int r = R_GEN; r < R_NUM; r++) reg_write_back(r);
-            for (int r = R_GEN; r < R_NUM; r++) rdesc[r].var = nullptr;
+            for (int r = R_GEN; r < R_NUM; r++) rdesc[r].var = NULL;
             out_str(file_s, "\tJMP %s\n", tac->a->name);
             break;
         
@@ -330,13 +223,13 @@ void asm_code(TAC* tac) {
             break;
         
         default:
-            std::cerr << "Unknown TAC opcode to translate: " << tac->op << std::endl;
+            printf("Unknown TAC opcode to translate: \n");
             break;
     }
 }
 
 void asm_var(TAC* tac) {
-    if (tac->a == nullptr) return;
+    if (tac->a == NULL) return;
     
     if (scope) {
         // Local variable
@@ -356,7 +249,7 @@ void asm_copy(TAC* tac) {
     int r = reg_alloc(tac->b);
     
     // Update register descriptor to indicate it now contains destination
-    rdesc_fill(r, tac->a, MODIFIED);
+    reg_fill(tac->a,r, MODIFIED);
 }
 
 void asm_label(TAC* tac) {
@@ -367,7 +260,7 @@ void asm_label(TAC* tac) {
     
     // Clear all register descriptors
     for (int r = R_GEN; r < R_NUM; r++) {
-        rdesc[r].var = nullptr;
+        rdesc[r].var = NULL;
         rdesc[r].mod = UNMODIFIED;
     }
     

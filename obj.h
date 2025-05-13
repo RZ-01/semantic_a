@@ -24,8 +24,9 @@ struct rdesc /* register descriptor */
 {
 	struct sym *var;
 	int mod;
+	int cnt;
 };
-struct rdesc rdesc[32];
+extern struct rdesc rdesc[16];
 extern FILE* file_s;
 extern int tos; /* top of static */
 extern int tof; /* top of frame */

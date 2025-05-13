@@ -1,32 +1,29 @@
 CC = gcc
-CXX = g++
 CFLAGS = -Wall -g
-CXXFLAGS = -Wall -g -std=c++17
 
-all: compiler
+all: compiler asm machine
 
-compiler: y.tab.c lex.yy.c tac.o main.o obj.o
-	$(CXX) $(CXXFLAGS) -o compiler y.tab.c lex.yy.c tac.o main.o obj.o
-
-y.tab.c y.tab.h: custom.y
+compiler: main.c tac.h obj.h xzl.c lyr.c zjr.c custom.y custom.l tac.c
 	yacc -d custom.y
-
-lex.yy.c: custom.l y.tab.h
 	flex custom.l
-
-tac.o: tac.c tac.h
 	$(CC) $(CFLAGS) -c tac.c
-
-main.o: main.c tac.h y.tab.h
-	$(CC) $(CFLAGS) -c main.c
-
-obj.o: obj.cpp obj.h
-	$(CXX) $(CXXFLAGS) -c obj.cpp
+	$(CC) $(CFLAGS) zjr.c xzl.c lyr.c tac.o main.c y.tab.c lex.yy.c -o compiler
 
 clean:
-	rm -f compiler lex.yy.c y.tab.c y.tab.h *.o *.tac *.asm
+	rm -f compiler lex.yy.c y.tab.c y.tab.h *.o *.tac asm machine
 
-test: compiler
-	./compiler test.cl
+asm: asm.l asm.y opcode.h
+	lex -o asm.l.c asm.l
+	yacc -d -o asm.y.c asm.y
+	gcc -g3 asm.l.c asm.y.c -o asm
+
+machine: machine.c opcode.h
+	gcc -g3 machine.c -o machine
+
+test: compiler machine asm
+	export LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH; \
+	./compiler test.cl; \
+	./asm output.s; \
+	./machine output.o
 
 .PHONY: all clean test

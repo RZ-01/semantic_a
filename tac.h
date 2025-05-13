@@ -1,5 +1,6 @@
 #ifndef _TAC_H_
 #define _TAC_H_
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -57,8 +58,6 @@
 #define TAC_FOR_INIT     32  // for初始化
 #define TAC_FOR_COND     33  // for条件
 #define TAC_FOR_UPDATE   34  // for更新
-#define TAC_INT_TO_FLOAT 35  // int to float conversion
-#define TAC_FLOAT_TO_INT 36  // float to int conversion
 
 /* 符号表项结构 */
 typedef struct sym {
@@ -140,7 +139,7 @@ SYM* insert_const(SYM* sym);                // 插入常量
 SYM* mk_sym();                              // 创建符号
 void out_tac_list();                        // 输出TAC列表
 SYM* mk_text(char* text);                   // 创建文本
-void out_tac(std::ofstream f, TAC* tac);            // 输出单条TAC
+void out_tac(FILE* f, TAC* tac);            // 输出单条TAC
 SYM* mk_array(char* name, int size);        // 创建数组
 SYM* do_const_var(char* name, int value);   // 创建常量变量
 EXP* do_array_index(SYM* array, EXP* index); // 数组索引
@@ -149,7 +148,7 @@ EXP* do_bool_literal(int value);            // 布尔字面量
 EXP* do_logic(int op, EXP *exp1, EXP *exp2); // 逻辑操作
 EXP* do_not(EXP *exp);                       // 逻辑非操作
 TAC* do_for(TAC* init, EXP* cond, TAC* update, TAC* body); // for循环
-
+void out_str(FILE* f,const char *format, ...);
 int yylex(void);                           // 词法分析函数
 void yyerror(char* msg);                   // 语法错误函数
 

@@ -6,8 +6,16 @@
 #define YYDEBUG 1
 
 #include "y.tab.h"
+#include "obj.h"
 
+int tos; /* top of static */
+int tof; /* top of frame */
+int oof; /* offset of formal */
+int oon;
+
+FILE* file_s;
 FILE* output_file;
+struct rdesc rdesc[16];
 extern FILE* yyin;
 extern int yyparse(void); 
 
@@ -40,12 +48,14 @@ int main(int argc, char *argv[]) {
     output_filename[len-1] = 'a';
     output_filename[len] = 'c';
     output_filename[len+1] = '\0';
+
+	
     
     if ((output_file = fopen(output_filename, "w")) == NULL) {
         fprintf(stderr, "Cannot create output file %s\n", output_filename);
         exit(1);
     }
-    
+
     init();
     
     printf("Starting lexical analysis...\n");
@@ -72,6 +82,7 @@ int main(int argc, char *argv[]) {
     fclose(yyin);
     fclose(output_file);
     free(output_filename);
+    tac_obj();
     
     return 0;
 }
