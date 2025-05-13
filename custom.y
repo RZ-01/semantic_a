@@ -131,7 +131,7 @@ var_declaration:
 
 init_declarator_list:
     init_declarator                           { $$ = $1; }
-  | init_declarator_list ',' init_declarator  { $1->next = $3; $$ = $1; }
+    | init_declarator ',' init_declarator_list   { $1->next = $3; $$ = $1; }
 ;
 
 init_declarator:
