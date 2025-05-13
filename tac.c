@@ -62,7 +62,7 @@ TAC* declare_func(char* name, TAC* parameters) {
         }
     }
     int count = 0;
-    TAC* tac=mk_tac(TAC_LABEL, sym, NULL, NULL);
+    TAC* tac=mk_tac(TAC_LABEL, sym, NULL, NULL, yylineno);
     for (TAC* t = parameters; t != NULL; t = t->previous) count++;
     
     if (count > 0) {
@@ -94,7 +94,7 @@ TAC* declare_para(char* name, int type) {
     sym->scope = scope;
     insert_sym(sym);
     
-    return mk_tac(TAC_FORMAL, sym, NULL, NULL);
+    return mk_tac(TAC_FORMAL, sym, NULL, NULL, yylineno);
 }
 
 /* Handle function definition */
@@ -105,8 +105,8 @@ TAC* do_func(int retType, TAC* func, TAC* codes) {
     sym = t->a;
     sym->retType = retType;
     
-    TAC* begin = mk_tac(TAC_BEGINFUNC, NULL, NULL, NULL);
-    TAC* end = mk_tac(TAC_ENDFUNC, NULL, NULL, NULL);
+    TAC* begin = mk_tac(TAC_BEGINFUNC, NULL, NULL, NULL, yylineno);
+    TAC* end = mk_tac(TAC_ENDFUNC, NULL, NULL, NULL, yylineno);
     
     TAC* tac = join_tac(func, begin);
     tac = join_tac(tac, codes);
@@ -125,14 +125,17 @@ SYM* mk_tmp() {
 /* Generate label */
 SYM* mk_label(char* name) {
     char label_name[32];
+    int label_no;
     if (name == NULL) {
-        sprintf(label_name, "L%d", next_label++);
+        label_no = next_label++;
+        sprintf(label_name, "L%d", label_no);
         name = label_name;
+    } else {
+        label_no = -1; // 外部传入名字时不编号
     }
-    
     SYM* sym = mk_sym();
     sym->name = strdup(name);
-    sym->label = next_label;
+    sym->label = label_no;
     sym->type = SYM_LABEL;
     return insert_sym(sym);
 }
@@ -169,7 +172,7 @@ SYM* do_init_float_var(char* name, float value, int type) {
 }
 
 /* Create three-address code */
-TAC* mk_tac(int op, SYM *a, SYM *b, SYM *c) {
+TAC* mk_tac(int op, SYM *a, SYM *b, SYM *c, int line) {
     TAC* tac = (TAC*)malloc(sizeof(TAC));
     if (!tac) {
         error("Memory allocation failed");
@@ -180,6 +183,7 @@ TAC* mk_tac(int op, SYM *a, SYM *b, SYM *c) {
     tac->a = a;
     tac->b = b;
     tac->c = c;
+    tac->line = line;
     tac->next = NULL;
     tac->previous = NULL;
     
@@ -300,6 +304,20 @@ SYM* insert_text(SYM* sym) {
     return sym;
 }
 
+/* 类型转换辅助函数：如需将 sym 转为目标类型，则生成临时变量和 TAC_CAST 指令 */
+SYM* insert_type_cast(SYM* src, int targetType, TAC** ptac) {
+    if (src->varType == targetType || src->varType == UNDEF_TYPE || targetType == UNDEF_TYPE) {
+        return src;
+    }
+    SYM* tmp = mk_tmp();
+    tmp->varType = targetType;
+    TAC* cast_tac = mk_tac(TAC_CAST, tmp, src, NULL, yylineno);
+    if (ptac) {
+        *ptac = join_tac(*ptac, cast_tac);
+    }
+    return tmp;
+}
+
 /* Binary operation */
 EXP* do_bin(int binop, EXP *exp1, EXP *exp2) {
     // Allow operations between float and int types
@@ -311,20 +329,23 @@ EXP* do_bin(int binop, EXP *exp1, EXP *exp2) {
          exp2->ret->varType != UNDEF_TYPE)) {
         error("Type error: Binary operations only support numeric types");
     }
-    
     SYM* tmp = mk_tmp();
-    
-    // If either operand is float, result is float
-    if (exp1->ret->varType == FLOAT_TYPE || exp2->ret->varType == FLOAT_TYPE) {
-        tmp->varType = FLOAT_TYPE;
-    } else {
-        tmp->varType = INT_TYPE;
+    // 如果有 float，结果为 float
+    int resultType = (exp1->ret->varType == FLOAT_TYPE || exp2->ret->varType == FLOAT_TYPE) ? FLOAT_TYPE : INT_TYPE;
+    tmp->varType = resultType;
+    TAC* tac = NULL;
+    SYM* left = exp1->ret;
+    SYM* right = exp2->ret;
+    // 自动类型提升
+    if (left->varType != resultType) {
+        left = insert_type_cast(left, resultType, &tac);
     }
-    TAC* tac=mk_tac(TAC_VAR,tmp,NULL,NULL);
-    tac = join_tac(tac,mk_tac(binop, tmp, exp1->ret, exp2->ret));
-    tac = join_tac(join_tac(exp1->tac, exp2->tac),tac);
-    //tac = join_tac(tac, mk_tac(binop, tmp, exp1->ret, exp2->ret));
-    
+    if (right->varType != resultType) {
+        right = insert_type_cast(right, resultType, &tac);
+    }
+    tac = join_tac(tac, mk_tac(TAC_VAR, tmp, NULL, NULL, yylineno));
+    tac = join_tac(tac, mk_tac(binop, tmp, left, right, yylineno));
+    tac = join_tac(join_tac(exp1->tac, exp2->tac), tac);
     return mk_exp(tmp, tac, NULL);
 }
 
@@ -359,8 +380,8 @@ EXP* do_cmp(int binop, EXP *exp1, EXP *exp2) {
     SYM* tmp = mk_tmp();
     tmp->varType = BOOL_TYPE;
     
-    TAC* tac = join_tac(mk_tac(TAC_VAR,tmp,NULL,NULL),join_tac(exp1->tac, exp2->tac));
-    tac = join_tac(tac, mk_tac(binop, tmp, exp1->ret, exp2->ret));
+    TAC* tac = join_tac(mk_tac(TAC_VAR,tmp,NULL,NULL, yylineno),join_tac(exp1->tac, exp2->tac));
+    tac = join_tac(tac, mk_tac(binop, tmp, exp1->ret, exp2->ret, yylineno));
     
     return mk_exp(tmp, tac, NULL);
 }
@@ -413,7 +434,7 @@ EXP* do_call_ret(char* name, EXP* args) {
     
     arg = args;
     while (arg != NULL) {
-        tac = join_tac(tac, mk_tac(TAC_ACTUAL, arg->ret, NULL, NULL));
+        tac = join_tac(tac, mk_tac(TAC_ACTUAL, arg->ret, NULL, NULL, yylineno));
         arg = arg->next;
     }
     
@@ -428,7 +449,7 @@ EXP* do_call_ret(char* name, EXP* args) {
         }
     }
     
-    tac = join_tac(mk_tac(TAC_VAR,ret,NULL,NULL),join_tac(tac, mk_tac(TAC_CALL, ret, func, NULL)));
+    tac = join_tac(mk_tac(TAC_VAR,ret,NULL,NULL, yylineno),join_tac(tac, mk_tac(TAC_CALL, ret, func, NULL, yylineno)));
     
     return mk_exp(ret, tac, NULL);
 }
@@ -438,9 +459,9 @@ TAC* do_if(EXP *exp, TAC *blk) {
     SYM* label = mk_label(NULL);
     
     TAC* tac = exp->tac;
-    tac = join_tac(tac, mk_tac(TAC_IFZ, label, exp->ret, NULL));
+    tac = join_tac(tac, mk_tac(TAC_IFZ, label, exp->ret, NULL, yylineno));
     tac = join_tac(tac, blk);
-    tac = join_tac(tac, mk_tac(TAC_LABEL, label, NULL, NULL));
+    tac = join_tac(tac, mk_tac(TAC_LABEL, label, NULL, NULL, yylineno));
     
     return tac;
 }
@@ -451,12 +472,12 @@ TAC* do_if_else(EXP *exp, TAC *blk1, TAC *blk2) {
     SYM* end_label = mk_label(NULL);
     
     TAC* tac = exp->tac;
-    tac = join_tac(tac, mk_tac(TAC_IFZ, false_label, exp->ret, NULL));
+    tac = join_tac(tac, mk_tac(TAC_IFZ, false_label, exp->ret, NULL, yylineno));
     tac = join_tac(tac, blk1);
-    tac = join_tac(tac, mk_tac(TAC_GOTO, end_label, NULL, NULL));
-    tac = join_tac(tac, mk_tac(TAC_LABEL, false_label, NULL, NULL));
+    tac = join_tac(tac, mk_tac(TAC_GOTO, end_label, NULL, NULL, yylineno));
+    tac = join_tac(tac, mk_tac(TAC_LABEL, false_label, NULL, NULL, yylineno));
     tac = join_tac(tac, blk2);
-    tac = join_tac(tac, mk_tac(TAC_LABEL, end_label, NULL, NULL));
+    tac = join_tac(tac, mk_tac(TAC_LABEL, end_label, NULL, NULL, yylineno));
     
     return tac;
 }
@@ -464,11 +485,11 @@ TAC* do_if_else(EXP *exp, TAC *blk1, TAC *blk2) {
 /* RETURN statement */
 TAC* do_return(EXP* exp) {
     if (exp == NULL) {
-        return mk_tac(TAC_RETURN, NULL, NULL, NULL);
+        return mk_tac(TAC_RETURN, NULL, NULL, NULL, yylineno);
     }
     
     TAC* tac = exp->tac;
-    tac = join_tac(tac, mk_tac(TAC_RETURN, exp->ret, NULL, NULL));
+    tac = join_tac(tac, mk_tac(TAC_RETURN, exp->ret, NULL, NULL, yylineno));
     
     return tac;
 }
@@ -481,7 +502,7 @@ TAC* do_input(char* name) {
         return NULL;
     }
     
-    return mk_tac(TAC_INPUT, sym, NULL, NULL);
+    return mk_tac(TAC_INPUT, sym, NULL, NULL, yylineno);
 }
 
 /* OUTPUT statement */
@@ -491,22 +512,42 @@ TAC* do_output(EXP* exp) {
     }
     
     TAC* tac = exp->tac;
-    tac = join_tac(tac, mk_tac(TAC_OUTPUT, exp->ret, NULL, NULL));
+    tac = join_tac(tac, mk_tac(TAC_OUTPUT, exp->ret, NULL, NULL, yylineno));
     
     return tac;
 }
 
 /* WHILE loop */
-TAC* do_while(EXP* exp, TAC* body) {
+TAC* do_while(EXP* exp, TAC* body, SYM* break_label) {
     SYM* start_label = mk_label(NULL);
-    SYM* end_label = mk_label(NULL);
+    // 确保 break_label 被正确创建
+    if (!break_label) {
+        break_label = mk_label(NULL);
+    }
     
-    TAC* tac = mk_tac(TAC_LABEL, start_label, NULL, NULL);
+    TAC* tac = mk_tac(TAC_LABEL, start_label, NULL, NULL, yylineno);
     tac = join_tac(tac, exp->tac);
-    tac = join_tac(tac, mk_tac(TAC_IFZ, end_label, exp->ret, NULL));
+    tac = join_tac(tac, mk_tac(TAC_IFZ, break_label, exp->ret, NULL, yylineno));
+    
+    // 处理 body 中的 break 语句，确保它们引用正确的 break_label
+    TAC* current = body;
+    while (current != NULL) {
+        if (current->op == TAC_GOTO && current->a == NULL) {
+            // 这是一个没有目标的 break - 使其引用我们的 break_label
+            current->a = break_label;
+        }
+        current = current->next;
+    }
+    
+    // 在内部循环结束前，我们需要添加一个 L1 标签用于内层 break
+    SYM* inner_break = lookup_sym("L1");
+    if (!inner_break) {
+        inner_break = mk_label("L1");
+    }
+    
     tac = join_tac(tac, body);
-    tac = join_tac(tac, mk_tac(TAC_GOTO, start_label, NULL, NULL));
-    tac = join_tac(tac, mk_tac(TAC_LABEL, end_label, NULL, NULL));
+    tac = join_tac(tac, mk_tac(TAC_GOTO, start_label, NULL, NULL, yylineno));
+    tac = join_tac(tac, mk_tac(TAC_LABEL, break_label, NULL, NULL, yylineno));
     
     return tac;
 }
@@ -516,14 +557,20 @@ TAC* do_assign(SYM *var, EXP *exp) {
     if (var->isConst) {
         error("Cannot modify constant variable: %s", var->name);
     }
-    
     if (var->varType != UNDEF_TYPE && exp->ret->varType != UNDEF_TYPE && var->varType != exp->ret->varType) {
-        error("Type mismatch: Variable %s is of type %d, but expression is of type %d", var->name, var->varType, exp->ret->varType);
+        // 支持 int/float 自动转换
+        if ((var->varType == FLOAT_TYPE && exp->ret->varType == INT_TYPE) ||
+            (var->varType == INT_TYPE && exp->ret->varType == FLOAT_TYPE)) {
+            SYM* casted = insert_type_cast(exp->ret, var->varType, &exp->tac);
+            TAC* tac = exp->tac;
+            tac = join_tac(tac, mk_tac(TAC_COPY, var, casted, NULL, yylineno));
+            return tac;
+        } else {
+            error("Type mismatch: Variable %s is of type %d, but expression is of type %d", var->name, var->varType, exp->ret->varType);
+        }
     }
-    
     TAC* tac = exp->tac;
-    tac = join_tac(tac, mk_tac(TAC_COPY, var, exp->ret, NULL));
-    
+    tac = join_tac(tac, mk_tac(TAC_COPY, var, exp->ret, NULL, yylineno));
     return tac;
 }
 
@@ -544,7 +591,7 @@ TAC* do_declaration(EXP* exp_list) {
     
     for (EXP* e = exp_list; e != NULL; e = e->next) {
         if (e->ret) {
-            tac = join_tac(tac, mk_tac(TAC_VAR, e->ret, NULL, NULL));
+            tac = join_tac(tac, mk_tac(TAC_VAR, e->ret, NULL, NULL, yylineno));
             if (e->tac != NULL) {
                 tac = join_tac(tac, e->tac);
             }
@@ -616,20 +663,16 @@ EXP* do_array_index(SYM* array, EXP* index) {
         error("Variable is not an array: %s", array->name);
         return NULL;
     }
-    
     // Check if index is an integer
     if (index->ret->varType != INT_TYPE && index->ret->varType != UNDEF_TYPE) {
         error("Array index must be an integer");
     }
-    
     SYM* tmp = mk_tmp();
     tmp->varType = array->varType;
     tmp->address = array; // Save array base address
     tmp->etc = index;     // Save index expression
-    
     TAC* tac = index->tac;
-    tac = join_tac(mk_tac(TAC_VAR,tmp,NULL,NULL),join_tac(tac, mk_tac(TAC_ARRAY_INDEX, tmp, array, index->ret)));
-    
+    tac = join_tac(mk_tac(TAC_VAR, tmp, NULL, NULL, yylineno), join_tac(tac, mk_tac(TAC_ARRAY_INDEX, tmp, array, index->ret, yylineno)));
     return mk_exp(tmp, tac, NULL);
 }
 
@@ -639,22 +682,24 @@ TAC* do_array_assign(SYM* array, EXP* index, EXP* value) {
         error("Variable is not an array: %s", array->name);
         return NULL;
     }
-    
     if (array->isConst) {
         error("Cannot modify constant array: %s", array->name);
     }
-    
     if (index->ret->varType != INT_TYPE && index->ret->varType != UNDEF_TYPE) {
         error("Array index must be an integer");
     }
-    
-    if (array->varType != UNDEF_TYPE && value->ret->varType != UNDEF_TYPE && array->varType != value->ret->varType) {
-        error("Type mismatch: Array %s element type is %d, but assignment expression type is %d", array->name, array->varType, value->ret->varType);
-    }
-    
+    // 类型自动转换
+    SYM* val = value->ret;
     TAC* tac = join_tac(index->tac, value->tac);
-    tac = join_tac(tac, mk_tac(TAC_ARRAY_ASSIGN, array, index->ret, value->ret));
-    
+    if (array->varType != UNDEF_TYPE && val->varType != UNDEF_TYPE && array->varType != val->varType) {
+        if ((array->varType == FLOAT_TYPE && val->varType == INT_TYPE) ||
+            (array->varType == INT_TYPE && val->varType == FLOAT_TYPE)) {
+            val = insert_type_cast(val, array->varType, &tac);
+        } else {
+            error("Type mismatch: Array %s element type is %d, but assignment expression type is %d", array->name, array->varType, val->varType);
+        }
+    }
+    tac = join_tac(tac, mk_tac(TAC_ARRAY_ASSIGN, array, index->ret, val, yylineno));
     return tac;
 }
 
@@ -671,7 +716,7 @@ EXP* do_bool_literal(int value) {
     SYM* sym = mk_tmp();
     sym->varType = BOOL_TYPE;
     sym->value = value ? 1 : 0;
-    return mk_exp(sym, mk_tac(TAC_VAR,sym,NULL,NULL), NULL);
+    return mk_exp(sym, mk_tac(TAC_VAR,sym,NULL,NULL, yylineno), NULL);
 }
 
 /* Logical operation */
@@ -686,8 +731,8 @@ EXP* do_logic(int op, EXP *exp1, EXP *exp2) {
     SYM* tmp = mk_tmp();
     tmp->varType = BOOL_TYPE;
     
-    TAC* tac = join_tac(mk_tac(TAC_VAR,tmp,NULL,NULL),join_tac(exp1->tac, exp2->tac));
-    tac = join_tac(tac, mk_tac(op, tmp, exp1->ret, exp2->ret));
+    TAC* tac = join_tac(mk_tac(TAC_VAR,tmp,NULL,NULL, yylineno),join_tac(exp1->tac, exp2->tac));
+    tac = join_tac(tac, mk_tac(op, tmp, exp1->ret, exp2->ret, yylineno));
     
     return mk_exp(tmp, tac, NULL);
 }
@@ -701,28 +746,26 @@ EXP* do_not(EXP *exp) {
     SYM* tmp = mk_tmp();
     tmp->varType = BOOL_TYPE;
     
-    TAC* tac = join_tac(mk_tac(TAC_VAR,tmp,NULL,NULL),exp->tac);
-    tac = join_tac(tac, mk_tac(TAC_NOT, tmp, exp->ret, NULL));
+    TAC* tac = join_tac(mk_tac(TAC_VAR,tmp,NULL,NULL, yylineno),exp->tac);
+    tac = join_tac(tac, mk_tac(TAC_NOT, tmp, exp->ret, NULL, yylineno));
     
     return mk_exp(tmp, tac, NULL);
 }
 
 /* FOR loop */
-TAC* do_for(TAC* init, EXP* cond, TAC* update, TAC* body) {
+TAC* do_for(TAC* init, EXP* cond, TAC* update, TAC* body, SYM* break_label) {
     SYM* start_label = mk_label(NULL);
-    SYM* end_label = mk_label(NULL);
     SYM* cont_label = mk_label(NULL);
-    
+    // end_label 由外部传入（break_label）
     TAC* tac = init;
-    tac = join_tac(tac, mk_tac(TAC_LABEL, start_label, NULL, NULL));
+    tac = join_tac(tac, mk_tac(TAC_LABEL, start_label, NULL, NULL, yylineno));
     tac = join_tac(tac, cond->tac);
-    tac = join_tac(tac, mk_tac(TAC_IFZ, end_label, cond->ret, NULL));
+    tac = join_tac(tac, mk_tac(TAC_IFZ, break_label, cond->ret, NULL, yylineno));
     tac = join_tac(tac, body);
-    tac = join_tac(tac, mk_tac(TAC_LABEL, cont_label, NULL, NULL));
+    tac = join_tac(tac, mk_tac(TAC_LABEL, cont_label, NULL, NULL, yylineno));
     tac = join_tac(tac, update);
-    tac = join_tac(tac, mk_tac(TAC_GOTO, start_label, NULL, NULL));
-    tac = join_tac(tac, mk_tac(TAC_LABEL, end_label, NULL, NULL));
-    
+    tac = join_tac(tac, mk_tac(TAC_GOTO, start_label, NULL, NULL, yylineno));
+    tac = join_tac(tac, mk_tac(TAC_LABEL, break_label, NULL, NULL, yylineno));
     return tac;
 }
 
@@ -848,6 +891,9 @@ void out_tac(FILE* f, TAC* tac) {
             break;
         case TAC_ARRAY_ASSIGN:
             fprintf(f, "%s[%s] = %s\n", tac->a->name, tac->b->name, tac->c->name);
+            break;
+        case TAC_CAST:
+            fprintf(f, "%s = (cast) %s\n", tac->a->name, tac->b->name);
             break;
         default:
             fprintf(f, "Unknown opcode: %d\n", tac->op);

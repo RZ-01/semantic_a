@@ -6,6 +6,29 @@
 
 int yylex(void);
 void yyerror(char* msg);
+
+// ===== break label stack for nested loops =====
+#define BREAK_LABEL_STACK_SIZE 64
+SYM* break_label_stack[BREAK_LABEL_STACK_SIZE];
+int break_label_top = -1;
+void push_break_label(SYM* label) {
+    if (break_label_top < BREAK_LABEL_STACK_SIZE - 1)
+        break_label_stack[++break_label_top] = label;
+    else {
+        fprintf(stderr, "break label stack overflow\n");
+        exit(1);
+    }
+}
+SYM* top_break_label() {
+    if (break_label_top >= 0)
+        return break_label_stack[break_label_top];
+    return NULL;
+}
+void pop_break_label() {
+    if (break_label_top >= 0)
+        break_label_top--;
+}
+// ===== end break label stack =====
 %}
 
 // Add debug directive
@@ -198,21 +221,48 @@ selection_statement:
 ;
 
 iteration_statement:
-    WHILE '(' expression ')' statement {
-        $$ = do_while($3, $5);
+    WHILE '(' expression ')' {
+        SYM* end_label = mk_label(NULL);
+        push_break_label(end_label);
+        $<sym>$ = end_label;  // 保存标签以供后续使用
+    } statement {
+        TAC* tac = do_while($3, $6, $<sym>5);
+        pop_break_label();
+        $$ = tac;
     }
-  | FOR '(' expression_statement expression_statement expression ')' statement {
-        $$ = do_for($3->tac, $4, $5->tac, $7);
+  | FOR '(' expression_statement expression_statement expression ')' {
+        SYM* end_label = mk_label(NULL);
+        push_break_label(end_label);
+        // 不赋值 $$
+    } statement {
+        TAC* tac = do_for($3->tac, $4, $5->tac, $8, $<sym>7);
+        pop_break_label();
+        $$ = tac;
     }
-  | FOR '(' var_declaration expression_statement expression ')' statement {
-        $$ = do_for($3->tac, $4, $5->tac, $7);
+  | FOR '(' var_declaration expression_statement expression ')' {
+        SYM* end_label = mk_label(NULL);
+        push_break_label(end_label);
+        // 不赋值 $$
+    } statement {
+        TAC* tac = do_for($3->tac, $4, $5->tac, $8, $<sym>7);
+        pop_break_label();
+        $$ = tac;
     }
 ;
 
 jump_statement:
     RETURN ';'                 { $$ = do_return(NULL); }
   | RETURN expression ';'      { $$ = do_return($2); }
-  | BREAK ';'                  { /* 简化版不处理 */ $$ = NULL; }
+  | BREAK ';'                  {
+        SYM* label = top_break_label();
+        if (!label) {
+            error("break 不在循环中");
+            $$ = NULL;
+        } else {
+            // 创建一个指向 break 标签的 goto
+            $$ = mk_tac(TAC_GOTO, label, NULL, NULL, yylineno);
+        }
+    }
   | CONTINUE ';'               { /* 简化版不处理 */ $$ = NULL; }
 ;
 
@@ -294,7 +344,7 @@ unary_expression:
   | '-' unary_expression       {
         SYM* tmp = mk_tmp();
         tmp->varType = INT_TYPE;
-        TAC* tac = join_tac(mk_tac(TAC_VAR,tmp,NULL,NULL),join_tac($2->tac, mk_tac(TAC_NEG, tmp, $2->ret, NULL)));
+        TAC* tac = join_tac(mk_tac(TAC_VAR,tmp,NULL,NULL, yylineno),join_tac($2->tac, mk_tac(TAC_NEG, tmp, $2->ret, NULL, yylineno)));
         $$ = mk_exp(tmp, tac, NULL);
     }
   | NOT unary_expression       { $$ = do_not($2); }
@@ -319,7 +369,7 @@ postfix_expression:
   | lvalue INC                 {
         SYM* tmp = mk_tmp();
         SYM* one = mk_const(1);
-        TAC* tac = join_tac(mk_tac(TAC_VAR,tmp,NULL,NULL),mk_tac(TAC_COPY, tmp, $1, NULL));
+        TAC* tac = join_tac(mk_tac(TAC_VAR,tmp,NULL,NULL, yylineno),mk_tac(TAC_COPY, tmp, $1, NULL, yylineno));
         EXP* inc = do_bin(TAC_ADD, mk_exp($1, NULL, NULL), mk_exp(one, NULL, NULL));
         tac = join_tac(tac, inc->tac);
         tac = join_tac(tac, do_assign($1, inc));
@@ -328,7 +378,7 @@ postfix_expression:
   | lvalue DEC                 {
         SYM* tmp = mk_tmp();
         SYM* one = mk_const(1);
-        TAC* tac = join_tac(mk_tac(TAC_VAR,tmp,NULL,NULL),mk_tac(TAC_COPY, tmp, $1, NULL));
+        TAC* tac = join_tac(mk_tac(TAC_VAR,tmp,NULL,NULL, yylineno),mk_tac(TAC_COPY, tmp, $1, NULL, yylineno));
         EXP* dec = do_bin(TAC_SUB, mk_exp($1, NULL, NULL), mk_exp(one, NULL, NULL));
         tac = join_tac(tac, dec->tac);
         tac = join_tac(tac, do_assign($1, dec));

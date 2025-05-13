@@ -2,3 +2,5 @@ reference
 .vscode
 .DS_Store
 compiler.dSYM
+asm.dSYM
+machine.dSYM

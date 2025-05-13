@@ -33,7 +33,7 @@ extern int tof; /* top of frame */
 extern int oof; /* offset of formal */
 extern int oon; /* offset of next frame */
 
-void tac_obj();//生成目标代码,所有程序从这里开始
+void tac_obj(char *input_filename);//生成目标代码,所有程序从这里开始
 void asm_head();//目标代码开头，初始化R2和栈
 void asm_tail();//目标代码结尾，退出程序
 // Strings will be processed in asm_static

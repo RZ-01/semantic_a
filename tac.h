@@ -58,6 +58,7 @@
 #define TAC_FOR_INIT     32  // for初始化
 #define TAC_FOR_COND     33  // for条件
 #define TAC_FOR_UPDATE   34  // for更新
+#define TAC_CAST         35  // 类型转换
 
 /* 符号表项结构 */
 typedef struct sym {
@@ -84,6 +85,7 @@ typedef struct tac {
     SYM *b;              // 操作数1
     SYM *c;              // 操作数2
     int op;              // 操作类型
+    int line;            // 行号
     struct tac* next;    // 下一条指令
     struct tac* previous;// 上一条指令
 } TAC;
@@ -114,7 +116,7 @@ void tac_complete();                        // 完成TAC生成
 SYM* do_var(char* name);                    // 变量定义
 SYM* do_init_var(char* name, int value, int type); // 变量定义并初始化
 SYM* do_init_float_var(char* name, float value, int type); // 浮点变量定义并初始化
-TAC* mk_tac(int op, SYM *a, SYM *b, SYM *c); // 创建TAC
+TAC* mk_tac(int op, SYM *a, SYM *b, SYM *c, int line); // 创建TAC
 SYM* lookup_sym(char* name);                // 查找符号
 EXP* do_bin(int binop, EXP *exp1, EXP *exp2); // 二元操作
 SYM* mk_tmp();                              // 创建临时变量
@@ -126,7 +128,7 @@ TAC* do_if_else(EXP *exp, TAC *blk1, TAC *blk2); // if-else语句
 TAC* do_return(EXP* exp);                   // return语句
 TAC* do_input(char* name);                  // 输入语句
 TAC* do_output(EXP* exp);                   // 输出语句
-TAC* do_while(EXP* exp, TAC* tac);          // while循环
+TAC* do_while(EXP* exp, TAC* body, SYM* break_label); // while循环，增加break_label参数
 TAC* do_assign(SYM *var, EXP *exp);         // 赋值语句
 void add_type(int type, EXP* exp_list);     // 添加类型
 TAC* do_declaration(EXP* exp_list);         // 声明语句
@@ -147,7 +149,7 @@ TAC* do_array_assign(SYM* array, EXP* index, EXP* value); // 数组赋值
 EXP* do_bool_literal(int value);            // 布尔字面量
 EXP* do_logic(int op, EXP *exp1, EXP *exp2); // 逻辑操作
 EXP* do_not(EXP *exp);                       // 逻辑非操作
-TAC* do_for(TAC* init, EXP* cond, TAC* update, TAC* body); // for循环
+TAC* do_for(TAC* init, EXP* cond, TAC* update, TAC* body, SYM* break_label); // for循环，增加break_label参数
 void out_str(FILE* f,const char *format, ...);
 int yylex(void);                           // 词法分析函数
 void yyerror(char* msg);                   // 语法错误函数

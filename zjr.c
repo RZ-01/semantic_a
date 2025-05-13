@@ -2,28 +2,8 @@
 #include "tac.h"
 #include<stdio.h>
 #include<stdlib.h>
+#include<string.h>
 
-// from FILE* to std::ofstream
-
-// Original C-style 
-/*
-void out_str(std::ofstream& f, const char* format, ...) {
-    char buffer[1024];  // Buffer for formatted string
-    va_list args;
-    va_start(args, format);
-    vsnprintf(buffer, sizeof(buffer), format, args);
-    va_end(args);
-    
-    f << buffer;  // Write to stream
-}
-*/
-
-/*template<typename... Args>
-void out_str(std::ofstream& f, const char* format, Args&&... args) {
-    char buffer[1024];
-    snprintf(buffer, sizeof(buffer), format, std::forward<Args>(args)...);
-    f << buffer;
-}*/
 
 int get_var_size(int type) {
     switch (type) {
@@ -35,27 +15,19 @@ int get_var_size(int type) {
     }
 }
 
-/*
-std::string reg_name(int r) {
-    if (r >= 0 && r < 16) {
-        return "R" + std::to_string(r);
-    } else {
-        return "UNKNOWN_REG";
-    }
-}
+void tac_obj(char *input_filename) {
+    size_t len = strlen(input_filename);
+    char *assembly_filename = strdup(input_filename);
+    assembly_filename[len-2] = 's';
+    assembly_filename[len-1] = '\0';
 
-int get_var_size(int type) {
-    switch (type) {
-        case INT_TYPE: return LEN_INT;
-        case FLOAT_TYPE: return LEN_FLOAT;
-        case BOOL_TYPE: return LEN_BOOL;
-        case STRING_TYPE: return LEN_POINTER;
-        default: return LEN_INT;
+    file_s = fopen(assembly_filename, "w");
+    if (file_s == NULL) {
+        printf("Error: Cannot open output file %s\n", assembly_filename);
+        free(assembly_filename);
+        return;
     }
-}
-*/
 
-void tac_obj() {
     tof = LOCAL_OFF;
     oof = FORMAL_OFF;
     oon = 0;
@@ -63,11 +35,6 @@ void tac_obj() {
     for (int r = 0; r < R_NUM; r++) {
         rdesc[r].var = NULL;
         rdesc[r].mod = UNMODIFIED;
-    }
-    file_s=fopen("output.s","w");
-    if (file_s==NULL) {
-        printf("Error: Cannot open output file\n");
-        return;
     }
 
     asm_head();
@@ -83,7 +50,8 @@ void tac_obj() {
     asm_static();
     
     fclose(file_s);
-    printf("Assembly code generation completed.\n");
+    printf("Assembly code generation completed: output file is %s\n", assembly_filename);
+    free(assembly_filename);
 }
 
 void asm_head() {
@@ -148,8 +116,8 @@ void asm_static() {
 }
 
 void asm_code(TAC* tac) {
-    int r;
-    
+
+  
     switch (tac->op) {
         case TAC_VAR:
             asm_var(tac);
@@ -167,7 +135,6 @@ void asm_code(TAC* tac) {
         case TAC_SUB:
         case TAC_MUL:
         case TAC_DIV:
-        //case TAC_NEG:
             asm_bin(tac);
             break;
         
@@ -221,9 +188,28 @@ void asm_code(TAC* tac) {
         case TAC_FORMAL:
             asm_formal(tac);
             break;
+
+        case TAC_MOD:
+            printf("[Warning] Line%d: %% (Mod) Machine not supported\n", tac->line);
+            break;
+        case TAC_AND:
+            printf("[Warning] Line%d: && (Logical And) Machine not supported\n", tac->line);
+            break;
+        case TAC_OR:
+            printf("[Warning] Line%d: || (Logical Or) Machine not supported\n", tac->line);
+            break;
+        case TAC_NOT:
+            printf("[Warning] Line%d: ! (Logical Not) Machine not supported\n", tac->line);
+            break;
+        case TAC_ARRAY_INDEX:
+            printf("[Warning] Line%d: Array Machine not supported\n", tac->line);
+            break;
+        case TAC_ARRAY_ASSIGN:
+            printf("[Warning] Line%d: Array Machine not supported\n", tac->line);
+            break;
         
         default:
-            printf("Unknown TAC opcode to translate: \n");
+            printf("Unknown TAC opcode to translate: line=%d\n",tac->line);
             break;
     }
 }

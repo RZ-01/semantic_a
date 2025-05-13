@@ -57,16 +57,6 @@ int main(int argc, char *argv[]) {
     }
 
     init();
-    
-    printf("Starting lexical analysis...\n");
-    
-    printf("File content check:\n");
-    rewind(yyin);
-    int c;
-    while ((c = fgetc(yyin)) != EOF) {
-        putchar(c);
-    }
-    rewind(yyin);
 
     printf("Starting parser...\n");
     int parse_result = yyparse();
@@ -82,7 +72,8 @@ int main(int argc, char *argv[]) {
     fclose(yyin);
     fclose(output_file);
     free(output_filename);
-    tac_obj();
+    
+    tac_obj(input_filename);
     
     return 0;
 }

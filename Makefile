@@ -10,7 +10,7 @@ compiler: main.c tac.h obj.h xzl.c lyr.c zjr.c custom.y custom.l tac.c
 	$(CC) $(CFLAGS) zjr.c xzl.c lyr.c tac.o main.c y.tab.c lex.yy.c -o compiler
 
 clean:
-	rm -f compiler lex.yy.c y.tab.c y.tab.h *.o *.tac asm machine
+	rm -f compiler lex.yy.c y.tab.c y.tab.h *.o asm machine asm.l.c asm.y.c output.s output.o asm.y.h *.s
 
 asm: asm.l asm.y opcode.h
 	lex -o asm.l.c asm.l
@@ -22,8 +22,8 @@ machine: machine.c opcode.h
 
 test: compiler machine asm
 	export LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH; \
-	./compiler test.cl; \
-	./asm output.s; \
-	./machine output.o
+	./compiler test_while.cl; \
+	./asm test_while.s; \
+	./machine test_while.o
 
 .PHONY: all clean test
