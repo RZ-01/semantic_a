@@ -233,7 +233,7 @@ iteration_statement:
   | FOR '(' expression_statement expression_statement expression ')' {
         SYM* end_label = mk_label(NULL);
         push_break_label(end_label);
-        // 不赋值 $$
+        $<sym>$ = end_label;
     } statement {
         TAC* tac = do_for($3->tac, $4, $5->tac, $8, $<sym>7);
         pop_break_label();
@@ -242,7 +242,7 @@ iteration_statement:
   | FOR '(' var_declaration expression_statement expression ')' {
         SYM* end_label = mk_label(NULL);
         push_break_label(end_label);
-        // 不赋值 $$
+        $<sym>$ = end_label;
     } statement {
         TAC* tac = do_for($3->tac, $4, $5->tac, $8, $<sym>7);
         pop_break_label();

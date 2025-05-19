@@ -22,8 +22,8 @@ machine: machine.c opcode.h
 
 test: compiler machine asm
 	export LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH; \
-	./compiler test_while.cl; \
-	./asm test_while.s; \
-	./machine test_while.o
+	./compiler test.cl; \
+	./asm test.s; \
+	./machine test.o
 
 .PHONY: all clean test
