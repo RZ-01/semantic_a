@@ -67,3 +67,7 @@ void asm_endfunc(TAC *tac);//begin,返回时需修改tof,oof等
 int* reg_alloc_2(SYM* sym1,SYM* sym2);
 int* reg_alloc_3(SYM* sym1,SYM* sym2,SYM* sym3);
 
+// Array operations
+void asm_array_index(TAC *tac);    // Handle array indexing operation
+void asm_array_assign(TAC *tac);   // Handle array assignment operation
+

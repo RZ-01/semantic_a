@@ -854,7 +854,11 @@ void out_tac(FILE* f, TAC* tac) {
             fprintf(f, "label %s\n", tac->a->name);
             break;
         case TAC_VAR:
-            fprintf(f, "var %s\n", tac->a->name);
+            if (tac->a->type == SYM_ARRAY) {
+                fprintf(f, "var %s[%d]\n", tac->a->name, tac->a->size);
+            } else {
+                fprintf(f, "var %s\n", tac->a->name);
+            }
             break;
         case TAC_FORMAL:
             fprintf(f, "formal %s\n", tac->a->name);

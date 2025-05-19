@@ -202,10 +202,10 @@ void asm_code(TAC* tac) {
             printf("[Warning] Line%d: ! (Logical Not) Machine not supported\n", tac->line);
             break;
         case TAC_ARRAY_INDEX:
-            printf("[Warning] Line%d: Array Machine not supported\n", tac->line);
+            asm_array_index(tac);
             break;
         case TAC_ARRAY_ASSIGN:
-            printf("[Warning] Line%d: Array Machine not supported\n", tac->line);
+            asm_array_assign(tac);
             break;
         
         default:
@@ -217,16 +217,23 @@ void asm_code(TAC* tac) {
 void asm_var(TAC* tac) {
     if (tac->a == NULL) return;
     
+    int var_size = 4;  // Default size for non-array variables
+    
+    // Check if this is an array and calculate its size
+    if (tac->a->type == SYM_ARRAY) {
+        var_size = tac->a->size * get_var_size(tac->a->varType);
+    }
+    
     if (scope) {
         // Local variable
         tac->a->scope = 1;
         tac->a->offset = tof;
-        tof += 4;
+        tof += var_size;
     } else {
         // Global variable
         tac->a->scope = 0;
         tac->a->offset = tos;
-        tos += 4;
+        tos += var_size;
     }
 }
 
@@ -252,6 +259,73 @@ void asm_label(TAC* tac) {
     
     // Output the label
     out_str(file_s, "%s:\n", tac->a->name);
+}
+
+void asm_array_index(TAC* tac) {
+    // tac->a - destination variable
+    // tac->b - array base address
+    // tac->c - index expression
+    
+    // Only allocate the destination register
+    int r_dest = reg_alloc(tac->a);
+    
+    out_str(file_s, "\t# 计算数组元素地址\n");
+    // Load index value into R4 (temporary register)
+    out_str(file_s, "\tLOD R4,%s\n", tac->c->name);
+    
+    // Calculate element offset (index * 4 bytes per element)
+    out_str(file_s, "\tMUL R4,4\n");
+    
+    if (tac->b->scope == 0) { // Global array
+        out_str(file_s, "\t# 全局数组位于 STATIC + %d\n", tac->b->offset);
+        out_str(file_s, "\tLOD R5,STATIC\n");
+        out_str(file_s, "\tADD R5,%d\n", tac->b->offset);
+    } else { // Local array
+        out_str(file_s, "\t# 局部数组位于 R2 + %d\n", tac->b->offset);
+        out_str(file_s, "\tLOD R5,R2\n");
+        out_str(file_s, "\tADD R5,%d\n", tac->b->offset);
+    }
+    
+    // Add index offset to base address
+    out_str(file_s, "\tADD R5,R4\n");
+    
+    // Load value from calculated address
+    out_str(file_s, "\tLOD R%d,(R5)\n", r_dest);
+    
+    // Mark destination register as modified
+    reg_fill(tac->a, r_dest, MODIFIED);
+}
+
+void asm_array_assign(TAC* tac) {
+    // tac->a - array base address
+    // tac->b - index expression
+    // tac->c - value to assign
+    
+    // Only allocate register for the value
+    int r_value = reg_alloc(tac->c);
+    
+    out_str(file_s, "\t# 计算数组元素地址\n");
+    // Load index value into R4 (temporary register)
+    out_str(file_s, "\tLOD R4,%s\n", tac->b->name);
+    
+    // Calculate element offset (index * 4 bytes per element)
+    out_str(file_s, "\tMUL R4,4\n");
+    
+    if (tac->a->scope == 0) { // Global array
+        out_str(file_s, "\t# 全局数组位于 STATIC + %d\n", tac->a->offset);
+        out_str(file_s, "\tLOD R5,STATIC\n");
+        out_str(file_s, "\tADD R5,%d\n", tac->a->offset);
+    } else { // Local array
+        out_str(file_s, "\t# 局部数组位于 R2 + %d\n", tac->a->offset);
+        out_str(file_s, "\tLOD R5,R2\n");
+        out_str(file_s, "\tADD R5,%d\n", tac->a->offset);
+    }
+    
+    // Add index offset to base address
+    out_str(file_s, "\tADD R5,R4\n");
+    
+    // Store value to calculated address
+    out_str(file_s, "\tSTO (R5),R%d\n", r_value);
 }
 
 
