@@ -5,6 +5,7 @@
 #include<string.h>
 
 
+// 根据变量类型返回对应的内存大小
 int get_var_size(int type) {
     switch (type) {
         case INT_TYPE: return LEN_INT;
@@ -15,6 +16,7 @@ int get_var_size(int type) {
     }
 }
 
+// 主要的代码生成函数，将TAC代码转换为目标汇编代码
 void tac_obj(char *input_filename) {
     size_t len = strlen(input_filename);
     char *assembly_filename = strdup(input_filename);
@@ -54,6 +56,7 @@ void tac_obj(char *input_filename) {
     free(assembly_filename);
 }
 
+// 生成汇编代码的头部，包含程序初始化逻辑
 void asm_head() {
     char* head =
         "\t# head\n"
@@ -66,6 +69,7 @@ void asm_head() {
     out_str(file_s, "%s", head);
 }
 
+// 生成汇编代码的尾部，结束程序执行
 void asm_tail() {
     char* tail =
         "\n\t# tail\n"
@@ -75,6 +79,7 @@ void asm_tail() {
     out_str(file_s, "%s", tail);
 }
 
+// 处理字符串常量的汇编生成
 void asm_str(SYM* s) {
     char* t = s->name; // The text
     
@@ -103,6 +108,7 @@ void asm_str(SYM* s) {
     out_str(file_s, "0\n"); // End of string
 }
 
+// 处理全局变量和静态数据的汇编生成
 void asm_static() {
     for (SYM* sl = sym_tab_global; sl != NULL; sl = sl->next) {
         if (sl->type == SYM_TEXT) {
@@ -115,9 +121,8 @@ void asm_static() {
     out_str(file_s, "STACK:\n");
 }
 
+// 根据TAC操作码分发到不同的汇编生成函数
 void asm_code(TAC* tac) {
-
-  
     switch (tac->op) {
         case TAC_VAR:
             asm_var(tac);
@@ -214,6 +219,7 @@ void asm_code(TAC* tac) {
     }
 }
 
+// 处理变量声明，为变量分配内存空间
 void asm_var(TAC* tac) {
     if (tac->a == NULL) return;
     
@@ -237,6 +243,7 @@ void asm_var(TAC* tac) {
     }
 }
 
+// 处理变量赋值操作，实现寄存器分配和值复制
 void asm_copy(TAC* tac) {
     // Find or allocate register for source
     int r = reg_alloc(tac->b);
@@ -245,6 +252,7 @@ void asm_copy(TAC* tac) {
     reg_fill(tac->a,r, MODIFIED);
 }
 
+// 处理标签定义，用于控制流跳转
 void asm_label(TAC* tac) {
     // Write back all modified registers
     for (int r = R_GEN; r < R_NUM; r++) {
@@ -261,19 +269,17 @@ void asm_label(TAC* tac) {
     out_str(file_s, "%s:\n", tac->a->name);
 }
 
+// 处理数组元素访问，计算数组元素地址并加载值
 void asm_array_index(TAC* tac) {
     // tac->a - destination variable
     // tac->b - array base address
     // tac->c - index expression
-    
-    // Only allocate the destination register
+
     int r_dest = reg_alloc(tac->a);
     
     out_str(file_s, "\t# 计算数组元素地址\n");
-    // Load index value into R4 (temporary register)
     out_str(file_s, "\tLOD R4,%s\n", tac->c->name);
     
-    // Calculate element offset (index * 4 bytes per element)
     out_str(file_s, "\tMUL R4,4\n");
     
     if (tac->b->scope == 0) { // Global array
@@ -286,29 +292,24 @@ void asm_array_index(TAC* tac) {
         out_str(file_s, "\tADD R5,%d\n", tac->b->offset);
     }
     
-    // Add index offset to base address
     out_str(file_s, "\tADD R5,R4\n");
     
-    // Load value from calculated address
     out_str(file_s, "\tLOD R%d,(R5)\n", r_dest);
     
-    // Mark destination register as modified
     reg_fill(tac->a, r_dest, MODIFIED);
 }
 
+// 处理数组元素赋值，计算数组元素地址并存储值
 void asm_array_assign(TAC* tac) {
     // tac->a - array base address
     // tac->b - index expression
     // tac->c - value to assign
     
-    // Only allocate register for the value
     int r_value = reg_alloc(tac->c);
     
     out_str(file_s, "\t# 计算数组元素地址\n");
-    // Load index value into R4 (temporary register)
     out_str(file_s, "\tLOD R4,%s\n", tac->b->name);
     
-    // Calculate element offset (index * 4 bytes per element)
     out_str(file_s, "\tMUL R4,4\n");
     
     if (tac->a->scope == 0) { // Global array
@@ -321,10 +322,8 @@ void asm_array_assign(TAC* tac) {
         out_str(file_s, "\tADD R5,%d\n", tac->a->offset);
     }
     
-    // Add index offset to base address
     out_str(file_s, "\tADD R5,R4\n");
     
-    // Store value to calculated address
     out_str(file_s, "\tSTO (R5),R%d\n", r_value);
 }
 

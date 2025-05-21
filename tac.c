@@ -520,7 +520,6 @@ TAC* do_output(EXP* exp) {
 /* WHILE loop */
 TAC* do_while(EXP* exp, TAC* body, SYM* break_label) {
     SYM* start_label = mk_label(NULL);
-    // 确保 break_label 被正确创建
     if (!break_label) {
         break_label = mk_label(NULL);
     }
@@ -528,18 +527,13 @@ TAC* do_while(EXP* exp, TAC* body, SYM* break_label) {
     TAC* tac = mk_tac(TAC_LABEL, start_label, NULL, NULL, yylineno);
     tac = join_tac(tac, exp->tac);
     tac = join_tac(tac, mk_tac(TAC_IFZ, break_label, exp->ret, NULL, yylineno));
-    
-    // 处理 body 中的 break 语句，确保它们引用正确的 break_label
     TAC* current = body;
     while (current != NULL) {
         if (current->op == TAC_GOTO && current->a == NULL) {
-            // 这是一个没有目标的 break - 使其引用我们的 break_label
             current->a = break_label;
         }
         current = current->next;
     }
-    
-    // 在内部循环结束前，我们需要添加一个 L1 标签用于内层 break
     SYM* inner_break = lookup_sym("L1");
     if (!inner_break) {
         inner_break = mk_label("L1");

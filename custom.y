@@ -31,7 +31,6 @@ void pop_break_label() {
 // ===== end break label stack =====
 %}
 
-// Add debug directive
 %debug
 
 %union {
@@ -224,7 +223,7 @@ iteration_statement:
     WHILE '(' expression ')' {
         SYM* end_label = mk_label(NULL);
         push_break_label(end_label);
-        $<sym>$ = end_label;  // 保存标签以供后续使用
+        $<sym>$ = end_label; 
     } statement {
         TAC* tac = do_while($3, $6, $<sym>5);
         pop_break_label();
@@ -256,14 +255,14 @@ jump_statement:
   | BREAK ';'                  {
         SYM* label = top_break_label();
         if (!label) {
-            error("break 不在循环中");
+            error("break not in loop");
             $$ = NULL;
         } else {
             // 创建一个指向 break 标签的 goto
             $$ = mk_tac(TAC_GOTO, label, NULL, NULL, yylineno);
         }
     }
-  | CONTINUE ';'               { /* 简化版不处理 */ $$ = NULL; }
+  | CONTINUE ';'               { $$ = NULL; }
 ;
 
 io_statement:
